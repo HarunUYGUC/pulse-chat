@@ -1,0 +1,6 @@
+@PulseChat.Api_HostAddress = http://localhost:5021
+
+GET {{PulseChat.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
