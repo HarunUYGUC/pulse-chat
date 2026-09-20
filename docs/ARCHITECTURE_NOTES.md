@@ -1,107 +1,123 @@
-# PulseChat — Mimari Notlar ve Mühendislik Kararları (Engineering Deep Dive)
+# PulseChat — Architectural Notes & Engineering Deep Dive
 
-Bu doküman; **PulseChat** projesinin mimari tasarım sürecinde alınan kritik yazılım mühendisliği kararlarını, veri modellerini, bileşen hiyerarşisini, gerçek zamanlı haberleşme kalıplarını ve durum yönetimi stratejilerini detaylandıran kapsamlı teknik referanstır.
+This document provides an exhaustive technical analysis of the architectural design decisions, data modeling, component hierarchies, real-time communication patterns, and state management strategies implemented across **PulseChat**.
 
----
-
-## İçindekiler
-1. [Veri ve Tip Mühendisliği (Data & Type Engineering)](#1-veri-ve-tip-mühendisliği-data--type-engineering)
-   - [1.1 Cross-Stack Serialization ve Savunmacı Tipler (Defensive Typings)](#11-cross-stack-serialization-ve-savunmacı-tipler-defensive-typings)
-   - [1.2 DTO Flattening: `senderId` vs. `senderUsername` (İlişkisel Bütünlük vs. UI Performansı)](#12-dto-flattening-senderid-vs-senderusername-ilişkisel-bütünlük-vs-ui-performansı)
-   - [1.3 Generic Tipler ile Uçtan Uca Tip Güvenliği (`api.get<Channel[]>`)](#13-generic-tipler-ile-uçtan-uca-tip-güvenliği-apigetchannel)
-   - [1.4 Global vs. Dosyaya Özel (Local) Tip Ayrımı](#14-global-vs-dosyaya-özel-local-tip-ayrımı)
-   - [1.5 TypeScript Union Tipleri ve Null Güvenliği (`useState<string | null>(null)`)](#15-typescript-union-tipleri-ve-null-güvenliği-usestatestring--nullnull)
-2. [Bileşen ve Yerleşim Mimarisi (Component Hierarchy & Layout)](#2-bileşen-ve-yerleşim-mimarisi-component-hierarchy--layout)
-   - [2.1 Üç Kolonlu Esnek Yerleşim (Flexbox Layout: Sidebar, Canvas, Members)](#21-üç-kolonlu-esnek-yerleşim-flexbox-layout-sidebar-canvas-members)
-   - [2.2 Modal Yaşam Döngüsü ve Konumlandırma (`isOpen`, `onClose: () => void`)](#22-modal-yaşam-döngüsü-ve-konumlandırma-isopen-onclose---void)
-   - [2.3 Kısa Devre Koşullu Render (`{isMembersOpen && !isDm && <MembersSidebar />}`)](#23-kısa-devre-koşullu-render-ismembersopen--isdm--memberssidebar-)
-   - [2.4 React Sentetik Form Olayları (`React.FormEvent` & `e.preventDefault()`)](#24-react-sentetik-form-olayları-reactformevent--epreventdefault)
-3. [Veritabanı ve API Mimarisi (Database & API Architecture)](#3-veritabanı-ve-api-mimarisi-database--api-architecture)
-   - [3.1 Kişiye Özel Veriler vs. Genel Veriler (Join Table & Contextual DTO)](#31-kişiye-özel-veriler-vs-genel-veriler-join-table--contextual-dto)
-   - [3.2 Sorumluluk Sınırı (Separation of Concerns) ve API Sözleşmesi](#32-sorumluluk-sınırı-separation-of-concerns-ve-api-sözleşmesi)
-   - [3.3 SQLite Dinamik Şema Kontrolü (`PRAGMA table_info`)](#33-sqlite-dinamik-şema-kontrolü-pragma-table_info)
-4. [Durum Yönetimi ve React Prensipleri (State & Store Design)](#4-durum-yönetimi-ve-react-prensipleri-state--store-design)
-   - [4.1 Prop Drilling vs. Global Store Kararı (`ChatHeader` vs. `MembersSidebar`)](#41-prop-drilling-vs-global-store-kararı-chatheader-vs-memberssidebar)
-   - [4.2 Tip Tanımı (Interface) vs. Çalışma Zamanı Başlangıç Değeri (Initial State)](#42-tip-tanımı-interface-vs-çalışma-zamanı-başlangıç-değeri-initial-state)
-   - [4.3 React Hook İsimlendirme Konvansiyonu (`useChatStore`)](#43-react-hook-isimlendirme-konvansiyonu-usechatstore)
-5. [Gerçek Zamanlı Ağ ve Protokol Mimarisi (Networking & Protocols)](#5-gerçek-zamanlı-ağ-ve-protokol-mimarisi-networking--protocols)
-   - [5.1 HTTP REST vs. SignalR (WebSockets) Rol Ayrımı](#51-http-rest-vs-signalr-websockets-rol-ayrımı)
-   - [5.2 Geliştirme Ortamında CORS ve Vite Reverse Proxy Çözümü](#52-geliştirme-ortamında-cors-ve-vite-reverse-proxy-çözümü)
-   - [5.3 Zaman Damgaları: UTC Depolama ve İstemci Taraflı Formatlama](#53-zaman-damgaları-utc-depolama-ve-istemci-taraflı-formatlama)
-6. [Stil Stratejisi ve Dağıtım Yol Haritası (Styling & Deployment)](#6-stil-stratejisi-ve-dağıtım-yol-haritası-styling--deployment)
-   - [6.1 Hibrit Stil Stratejisi: Bootstrap 5 + Scoped Custom CSS (NPM vs CDN)](#61-hibrit-stil-stratejisi-bootstrap-5--scoped-custom-css-npm-vs-cdn)
-   - [6.2 Canlıya Alma (Production Deployment) Mimarisi](#62-canlıya-alma-production-deployment-mimarisi)
+> 🌐 **Language / Dil:** 🇬🇧 **English** | [🇹🇷 Türkçe Versiyon](ARCHITECTURE_NOTES.tr.md)
 
 ---
 
-## 1. Veri ve Tip Mühendisliği (Data & Type Engineering)
+## Table of Contents
+1. [Data & Type Engineering](#1-data--type-engineering)
+   - [1.1 Cross-Stack Serialization & Defensive Typings](#11-cross-stack-serialization--defensive-typings)
+   - [1.2 DTO Flattening: `senderId` vs. `senderUsername` (Relational Integrity vs. UI Performance)](#12-dto-flattening-senderid-vs-senderusername-relational-integrity-vs-ui-performance)
+   - [1.3 Generic Types for End-to-End Type Safety (`api.get<Channel[]>`)](#13-generic-types-for-end-to-end-type-safety-apigetchannel)
+   - [1.4 Global vs. Local Type Scoping](#14-global-vs-local-type-scoping)
+   - [1.5 TypeScript Union Types & Null Safety (`useState<string | null>(null)`)](#15-typescript-union-types--null-safety-usestatestring--nullnull)
+2. [Component Hierarchy & Layout Architecture](#2-component-hierarchy--layout-architecture)
+   - [2.1 Three-Column Responsive Flexbox Layout (Sidebar, Canvas, Members)](#21-three-column-responsive-flexbox-layout-sidebar-canvas-members)
+   - [2.2 Modal Lifecycle & Centering (`isOpen`, `onClose: () => void`)](#22-modal-lifecycle--centering-isopen-onclose---void)
+   - [2.3 Short-Circuit Conditional Rendering (`{isMembersOpen && !isDm && <MembersSidebar />}`)](#23-short-circuit-conditional-rendering-ismembersopen--isdm--memberssidebar-)
+   - [2.4 React Synthetic Form Events (`React.FormEvent` & `e.preventDefault()`)](#24-react-synthetic-form-events-reactformevent--epreventdefault)
+3. [Database & API Architecture](#3-database--api-architecture)
+   - [3.1 Contextual State vs. Shared Entity Modeling (Join Tables & Contextual DTOs)](#31-contextual-state-vs-shared-entity-modeling-join-tables--contextual-dtos)
+   - [3.2 Separation of Concerns & API Contracts](#32-separation-of-concerns--api-contracts)
+   - [3.3 Dynamic Schema Verification with SQLite (`PRAGMA table_info`)](#33-dynamic-schema-verification-with-sqlite-pragma-table_info)
+4. [State Management & React Design Patterns (Zustand)](#4-state-management--react-design-patterns-zustand)
+   - [4.1 Prop Drilling vs. Global State Decision (`ChatHeader` vs. `MembersSidebar`)](#41-prop-drilling-vs-global-state-decision-chatheader-vs-memberssidebar)
+   - [4.2 Type Definitions (Interfaces) vs. Runtime Initial State](#42-type-definitions-interfaces-vs-runtime-initial-state)
+   - [4.3 Custom Hook Naming Conventions (`useChatStore`)](#43-custom-hook-naming-conventions-usechatstore)
+5. [Real-Time Networking & Protocol Architecture](#5-real-time-networking--protocol-architecture)
+   - [5.1 HTTP REST vs. SignalR (WebSockets) Division of Responsibilities](#51-http-rest-vs-signalr-websockets-division-of-responsibilities)
+   - [5.2 Development CORS Mitigation via Vite Reverse Proxy](#52-development-cors-mitigation-via-vite-reverse-proxy)
+   - [5.3 Timestamps: UTC Persistence & Client-Side Localization](#53-timestamps-utc-persistence--client-side-localization)
+6. [Styling Strategy & Production Deployment Roadmap](#6-styling-strategy--production-deployment-roadmap)
+   - [6.1 Hybrid Styling Strategy: Bootstrap 5 + Scoped Custom CSS (NPM vs. CDN)](#61-hybrid-styling-strategy-bootstrap-5--scoped-custom-css-npm-vs-cdn)
+   - [6.2 Production Deployment Architecture (Serverless/PaaS vs. Single Linux VPS Nginx)](#62-production-deployment-architecture-serverlesspaas-vs-single-linux-vps-nginx)
 
-### 1.1 Cross-Stack Serialization ve Savunmacı Tipler (Defensive Typings)
+---
 
-* **Problem:** C# .NET ekosisteminde nesne property'leri geleneksel olarak **PascalCase** (`ChannelId`, `IsDirectMessage`), JavaScript/TypeScript dünyasında ise **camelCase** (`channelId`, `isDirectMessage`) yazılır. REST API controller'ları varsayılan olarak camelCase dönüşümü yaparken; SignalR üzerinden canlı aktarılan raw DTO'lar veya websocket paketleri zaman zaman PascalCase olarak kalabilir.
-* **Çözüm:** `frontend/src/types/index.ts` dosyasında çift uyumlu savunmacı tipler tanımlanmıştır:
+## 1. Data & Type Engineering
+
+### 1.1 Cross-Stack Serialization & Defensive Typings
+
+* **Problem:** In C# .NET, model properties adhere to **PascalCase** (`ChannelId`, `IsDirectMessage`), whereas the JavaScript / TypeScript ecosystem standardized on **camelCase** (`channelId`, `isDirectMessage`). While ASP.NET Core Controllers serialize outgoing HTTP responses to camelCase via `System.Text.Json`, payloads broadcast over SignalR or raw socket events can arrive with original PascalCase keys depending on hub serializer options.
+* **Solution:** `frontend/src/types/index.ts` introduces dual-compatible defensive type declarations:
   ```typescript
   export interface Message {
     id: number;
     content: string;
-    channelId: number;   // Standart REST API (camelCase)
-    ChannelId?: number;  // Fallback opsiyonel (SignalR / PascalCase)
+    channelId: number;   // Standard REST API (camelCase)
+    ChannelId?: number;  // Optional fallback (SignalR / PascalCase)
     senderId: number;
     senderUsername: string;
   }
   ```
-* **Store Tüketimi:** [chatStore.ts](file:///c:/Users/harun/Documents/antigravity/pulse-chat/frontend/src/store/chatStore.ts#L198) içinde güvenli okuma:
+* **Store Consumption:** [chatStore.ts](file:///c:/Users/harun/Documents/antigravity/pulse-chat/frontend/src/store/chatStore.ts#L198) reads values using an explicit defensive fallback:
   ```typescript
   const msgChannelId = Number(
     message.channelId || (message as unknown as { ChannelId: number }).ChannelId
   );
   ```
-  Bu desen, veri hangi formatta gelirse gelsin uygulamanın çökmesini (`undefined` hatalarını) önler.
+  This pattern guarantees runtime resiliency, preventing `undefined` property dereferences irrespective of upstream serializer configurations.
 
 ---
 
-### 1.2 DTO Flattening: `senderId` vs. `senderUsername` (İlişkisel Bütünlük vs. UI Performansı)
+### 1.2 DTO Flattening: `senderId` vs. `senderUsername` (Relational Integrity vs. UI Performance)
 
-Neden tek bir mesajda hem `senderId: number` hem `senderUsername: string` taşınır?
-1. **`senderId` (İlişkisel Kimlik & Güvenlik):** Veritabanındaki `Users` tablosunun değişmez `Primary Key`'idir. Kullanıcı adını gelecekte değiştirse bile bu kimlik sabittir. Ekranda *"Bu mesaj bana mı ait? (silme/düzenleme butonunu göster, okunmamış çizgisini çekme)"* kontrolü `currentUser.id === message.senderId` ile yapılır.
-2. **`senderUsername` (DTO Flattening & N+1 Sorgu Engelleme):** Ekranda her mesaj balonunun üstünde kullanıcı adı ve avatar gösterilmelidir. Eğer sadece `senderId: 42` gelseydi, frontend her mesaj için ek bir `GET /api/users/42` isteği atmak zorunda kalırdı (**N+1 Query Problemi**). Backend, DTO oluştururken kullanıcı adını mesaja düzleştirerek iliştirir (`DTO Flattening`). Böylece sıfır ek istek ile anında render sağlanır.
+Why are both `senderId: number` and `senderUsername: string` conveyed on the same message payload?
+1. **`senderId` (Relational Identity & Authorization):** Represents the immutable `Primary Key` of the `Users` table. Even if a user updates their displayed username in the future, `senderId` remains invariant. Frontend logic strictly verifies message ownership and permissions through this ID:
+   ```typescript
+   // Message ownership check: Is the current viewer the sender?
+   const isSelf = message.senderId === currentUser?.id;
+   ```
+2. **`senderUsername` (DTO Flattening & N+1 Prevention):** The UI requires an immediate human-readable name and avatar seed on every message bubble. If the backend only returned `senderId: 42`, the client would be forced to trigger an individual `GET /api/users/42` request for every message rendered (**the classic N+1 Network Query Problem**). By adopting **DTO Flattening** in `ChatHub.cs` and `MessagesController`, the server denormalizes the sender's username into the payload:
+   ```csharp
+   // backend/Hubs/ChatHub.cs
+   var resultDto = new MessageDto {
+       Id = message.Id,
+       ChannelId = message.ChannelId,
+       SenderId = sender.Id,            // For relational logic & authorization
+       SenderUsername = sender.Username // For zero-latency UI rendering
+   };
+   ```
+   This ensures instant client-side rendering with zero additional HTTP round-trips.
 
 ---
 
-### 1.3 Generic Tipler ile Uçtan Uca Tip Güvenliği (`api.get<Channel[]>`)
+### 1.3 Generic Types for End-to-End Type Safety (`api.get<Channel[]>`)
 
 ```typescript
 const response = await api.get<Channel[]>('/channels');
 ```
-* Axios varsayılan olarak API yanıtlarını `any` (tip denetimi yok) döndürür.
-* `<Channel[]>` generic parametresi verilerek derleyiciye yanıtın `Channel` nesnelerinden oluşan bir liste olduğu bildirilir.
-* Geliştirici yanlışlıkla `c.name` yerine `c.nmae` yazarsa derleme anında kırmızı hata verilir; çalışma anında (runtime) hata çıkması engellenir.
+* By default, HTTP clients like Axios type the response body as `any`, forfeiting compiler verification.
+* Supplying the `<Channel[]>` generic argument notifies TypeScript that `response.data` is an array of `Channel` objects.
+* Any typo (e.g., `c.nmae` instead of `c.name`) fails at build time, while providing full IDE IntelliSense autocomplete during development.
 
 ---
 
-### 1.4 Global vs. Dosyaya Özel (Local) Tip Ayrımı
+### 1.4 Global vs. Local Type Scoping
 
-Projede tipler **kullanım kapsamına (scope)** göre organize edilir:
-* **Global Tipler (`src/types/index.ts`):** Projenin ana aktörleridir (`User`, `Channel`, `Message`, `AuthResponse`). 2 veya daha fazla dosya tarafından ortak tüketilen modeller merkezi dosyada `export` edilir.
-* **Local Tipler:** Sadece o bileşenin girdilerini tanımlayan `Props` interface'leri (`ChatHeaderProps`, `MessageItemProps`) veya geçici form hata state'leri (`interface FormErrors`) ilgili bileşenin kendi `.tsx` dosyasında kalır.
+The project enforces a strict boundary based on **type scope**:
+* **Global Domain Types (`src/types/index.ts`):** Central domain models shared across two or more stores, pages, or modals (`User`, `Channel`, `Message`, `AuthResponse`).
+* **Local Types:** Interface contracts tied strictly to an isolated component's inputs (`ChatHeaderProps`, `MessageItemProps`) or transient local form states (`interface FormErrors`) remain co-located inside their respective `.tsx` files without polluting global exports.
 
 ---
 
-### 1.5 TypeScript Union Tipleri ve Null Güvenliği (`useState<string | null>(null)`)
+### 1.5 TypeScript Union Types & Null Safety (`useState<string | null>(null)`)
 
 ```typescript
 const [error, setError] = useState<string | null>(null);
 ```
-* Bir form hata mesajı başlangıçta yoktur (`null`), hata olduğunda ise metindir (`string`).
-* `<string | null>` generic union tipi ile TypeScript'e değişkenin sadece bu iki durumdan birinde olabileceği garanti edilir. Böylece hem `error.toUpperCase()` gibi güvensiz çağrılar engellenir hem de tip bütünlüğü korunur.
+* An error message is initially non-existent (`null`) and populated with text (`string`) upon failure.
+* The generic union type `<string | null>` prevents accidental runtime assumptions (e.g., calling string methods when the variable is null) and forces developers to handle both states safely.
 
 ---
 
-## 2. Bileşen ve Yerleşim Mimarisi (Component Hierarchy & Layout)
+## 2. Component Hierarchy & Layout Architecture
 
-### 2.1 Üç Kolonlu Esnek Yerleşim (Flexbox Layout: Sidebar, Canvas, Members)
+### 2.1 Three-Column Responsive Flexbox Layout (Sidebar, Canvas, Members)
 
-PulseChat arayüzü, Discord ve Slack tarzı modern **3-kolonlu CSS Flexbox** mimarisi üzerine kurulmuştur:
+PulseChat implements a modern **3-column CSS Flexbox** architecture modeled after Slack and Discord:
 
 ```
 ┌─────────────────┬──────────────────────────────────┬─────────────────┐
@@ -114,30 +130,30 @@ PulseChat arayüzü, Discord ve Slack tarzı modern **3-kolonlu CSS Flexbox** mi
 └─────────────────┴──────────────────────────────────┴─────────────────┘
 ```
 
-1. **`Sidebar` (`260px`, sabit genişlik):** Sunucu kanallarını, özel mesajları (DM) ve profil kartını barındırır (`flex-shrink: 0`).
-2. **`chat-main` (`flex: 1`, dinamik genişleyen merkez tuval):** Kendi içinde dikey flex (`flex-direction: column`) olarak düzenlenir. Üstte başlık (`ChatHeader`), ortada taşan mesaj akışı (`flex: 1; overflow-y: auto;`), altta giriş kutusu (`MessageInput`).
-3. **`MembersSidebar` (`240px`, sağ panel):** Kanal üyelerini çevrimiçi/çevrimdışı gruplarında listeler; açılıp kapanabilir.
+1. **`Sidebar` (`260px`, fixed width):** Holds channel lists, direct message conversations, and current user profile card (`flex-shrink: 0`).
+2. **`chat-main` (`flex: 1`, elastic central canvas):** Employs a vertical flex layout (`flex-direction: column`). Composed of `ChatHeader` at the top, a scrollable message viewport in the middle (`flex: 1; overflow-y: auto;`), and `MessageInput` at the base.
+3. **`MembersSidebar` (`240px`, collapsible right panel):** Categorizes channel members into online and offline groups.
 
 ---
 
-### 2.2 Modal Yaşam Döngüsü ve Konumlandırma (`isOpen`, `onClose: () => void`)
+### 2.2 Modal Lifecycle & Centering (`isOpen`, `onClose: () => void`)
 
-Modal bileşenlerinde (`CreateChannelModal`, `InviteMembersModal`, `BrowseChannelsModal`):
-* **Durum Ebeveyndedir:** Modalın açık veya kapalı olduğu bilgisi (`showModal: boolean`) ve kapatma fonksiyonu ebeveyn bileşendedir.
-* **Callback İletimi:** Ebeveyn, çocuğa `onClose: () => void` prop'unu aktarır. Modal içindeki "İptal" veya "X" butonu bu callback'i tetikler.
-* **Ekran Ortalaması:** Modal'ın ekranda doğru yerde belirmesi, CSS `position: fixed`, `top: 0; left: 0; width: 100vw; height: 100vh;`, `z-index: 1050;` ve Bootstrap `modal-dialog-centered` sınıflarıyla sağlanır.
-
----
-
-### 2.3 Kısa Devre Koşullu Render (`{isMembersOpen && !isDm && <MembersSidebar />}`)
-
-[AppLayout.tsx](file:///c:/Users/harun/Documents/antigravity/pulse-chat/frontend/src/components/layout/AppLayout.tsx#L82) içerisindeki koşullu render:
-* Sağ panel sadece kullanıcı paneli açık tutuyorsa (`isMembersOpen === true`) **VE** bulunulan kanal bir Direkt Mesaj (DM) değilse (`!isDm`) DOM'a basılır.
-* Birebir DM görüşmelerinde üyeler paneli anlamsız olduğundan koşul `false` üretir ve React bileşeni render etmeyerek arayüz alanını merkeze bırakır.
+For modals (`CreateChannelModal`, `InviteMembersModal`, `BrowseChannelsModal`):
+* **State Resides in Parent:** The visibility flag (`showModal: boolean`) and toggle handlers live within the triggering parent component.
+* **Callback Delegation:** The parent passes an `onClose: () => void` prop to the modal, which is invoked by "Cancel" or backdrop click handlers.
+* **Centering:** Positioning is governed by CSS `position: fixed`, `top: 0; left: 0; width: 100vw; height: 100vh;`, `z-index: 1050;`, and Bootstrap's `modal-dialog-centered` flex utilities.
 
 ---
 
-### 2.4 React Sentetik Form Olayları (`React.FormEvent` & `e.preventDefault()`)
+### 2.3 Short-Circuit Conditional Rendering (`{isMembersOpen && !isDm && <MembersSidebar />}`)
+
+In [AppLayout.tsx](file:///c:/Users/harun/Documents/antigravity/pulse-chat/frontend/src/components/layout/AppLayout.tsx#L82):
+* The right sidebar renders if and only if the user has toggled it open (`isMembersOpen === true`) **AND** the active conversation is not a Direct Message (`!isDm`).
+* In 1-on-1 conversations, a server member list is irrelevant; the expression evaluates to `false`, completely unmounting the component from the DOM and dedicating full horizontal space to the message feed.
+
+---
+
+### 2.4 React Synthetic Form Events (`React.FormEvent` & `e.preventDefault()`)
 
 ```typescript
 const handleSubmit = async (e: React.FormEvent) => {
@@ -145,125 +161,129 @@ const handleSubmit = async (e: React.FormEvent) => {
   ...
 };
 ```
-* HTML formları `submit` edildiğinde varsayılan olarak tarayıcıyı yenileyip sayfayı yeniden yüklemeye çalışır.
-* Tek Sayfa Uygulamalarında (SPA) `e.preventDefault()` çağrılarak bu varsayılan davranış engellenir; veri arka planda asenkron olarak Axios üzerinden API'ye iletilir.
+* Native HTML form submissions trigger a full browser page refresh.
+* In Single-Page Applications (SPAs), `e.preventDefault()` halts this default behavior, allowing form handling to execute asynchronously via Axios without dropping client-side state.
 
 ---
 
-## 3. Veritabanı ve API Mimarisi (Database & API Architecture)
+## 3. Database & API Architecture
 
-### 3.1 Kişiye Özel Veriler vs. Genel Veriler (Join Table & Contextual DTO)
+### 3.1 Contextual State vs. Shared Entity Modeling (Join Tables & Contextual DTOs)
 
-* **Problem:** Kanalın `name` ve `description` alanları herkes için aynı iken; `unreadCount`, `lastReadMessageId` ve `isMember` alanları oturum açmış kullanıcıya özeldir.
-* **Veritabanı Çözümü:** `Channels` tablosunda `unreadCount` diye bir sütun **yoktur**. Kullanıcı ile kanal arasındaki ilişki `ChannelMember` tablosunda tutulur:
+* **Problem:** Channel properties like `name` and `description` are uniform for all participants. Conversely, `unreadCount`, `lastReadMessageId`, and `isMember` are unique to the authenticated caller. How are these modeled without corrupting multi-user state?
+* **Database Design:** The `Channels` table deliberately excludes columns like `unreadCount`. Instead, per-user state is stored within the many-to-many junction entity, `ChannelMember`:
   ```csharp
   // backend/Models/ChannelMember.cs
   public class ChannelMember {
       public int ChannelId { get; set; }
       public int UserId { get; set; }
-      public int? LastReadMessageId { get; set; } // O kullanıcının okuduğu son mesaj ID'si
+      public int? LastReadMessageId { get; set; } // The latest message ID read by THIS specific user
       public DateTime? LastReadAt { get; set; }
   }
   ```
-* **Dinamik DTO Hesaplaması:** `ChannelsController.cs` istek anında token'daki `currentUserId`ye bakar; kullanıcının `LastReadMessageId` değerinden büyük mesaj sayısını hesaplar ve istemciye kişiselleştirilmiş `ChannelDto` döner.
+* **Dynamic DTO Projection:** When a client issues `GET /api/channels`, `ChannelsController`:
+  1. Extracts the caller's identity (`currentUserId`) from the JWT claims.
+  2. Queries the user's `ChannelMember.LastReadMessageId`.
+  3. Computes `unreadCount` at runtime by counting messages in the channel where `Id > LastReadMessageId` and `SenderId != currentUserId`.
+  4. Merges general channel metadata with the caller's computed state into a single unified `ChannelDto`.
 
 ---
 
-### 3.2 Sorumluluk Sınırı (Separation of Concerns) ve API Sözleşmesi
+### 3.2 Separation of Concerns & API Contracts
 
-* **Backend Sorumluluğu:** Tablo tasarımı, foreign key ilişkileri, veritabanı indeksleri ve SQL `JOIN` işlemleri %100 backend katmanına aittir.
-* **Frontend Sorumluluğu:** Veritabanı yapısını bilmez; yalnızca sunulan **API Sözleşmesi (API Contract / Swagger)** doğrultusunda JSON paketlerini tüketir.
-
----
-
-### 3.3 SQLite Dinamik Şema Kontrolü (`PRAGMA table_info`)
-
-[backend/Program.cs](file:///c:/Users/harun/Documents/antigravity/pulse-chat/backend/Program.cs#L187) içinde bulunan `EnsureColumnExists` fonksiyonu:
-* SQLite veritabanlarında `PRAGMA table_info("TableName");` sorgusu çalıştırarak sütunların varlığını dinamik olarak denetler.
-* Eksik bir sütun varsa (`ALTER TABLE ... ADD COLUMN ...`) komutunu güvenle çalıştırır. Böylece veritabanını silip baştan oluşturmaya gerek kalmadan şema güncellemeleri korunur.
+* **Backend Domain:** Relational schema design, foreign key constraints, indexing strategies, and multi-table SQL `JOIN` queries belong strictly to the backend and DBA layer.
+* **Frontend Domain:** Agnostic of SQL syntax and database engines (whether SQLite, PostgreSQL, or SQL Server); interacts solely through a standardized **API Contract** defined via Swagger/OpenAPI specifications and TypeScript DTOs.
 
 ---
 
-## 4. Durum Yönetimi ve React Prensipleri (State & Store Design)
+### 3.3 Dynamic Schema Verification with SQLite (`PRAGMA table_info`)
 
-### 4.1 Prop Drilling vs. Global Store Kararı (`ChatHeader` vs. `MembersSidebar`)
-
-* **`MembersSidebar` Neden 0 Prop Aldı?**  
-  İhtiyacı olan veriler (aktif kanal, üyeler, online durumu) zaten Zustand global store'unda (`useChatStore`, `useAuthStore`) mevcuttur. Bileşen veriyi doğrudan depodan kendisi çeker; aracı bileşenlere prop taşıtılmaz.
-* **`ChatHeader` Neden 2 Prop Aldı?**  
-  Panelin açık/kapalı durumu (`isMembersOpen`) ve aç/kapat fonksiyonu (`onToggleMembers`), sadece `AppLayout`'un yerel düzeniyle ilgilidir (`useState`). Store'da tutulmayan bu yerel UI verisi mecburen prop olarak aktarılır.
+The `EnsureColumnExists` helper in [backend/Program.cs](file:///c:/Users/harun/Documents/antigravity/pulse-chat/backend/Program.cs#L187):
+* Executes `PRAGMA table_info("TableName");` against the SQLite engine to introspect existing column metadata at startup.
+* If a new column is absent, it executes an idempotent `ALTER TABLE ... ADD COLUMN ...` statement. This ensures smooth schema evolution during development without dropping existing test data or re-migrating the database from scratch.
 
 ---
 
-### 4.2 Tip Tanımı (Interface) vs. Çalışma Zamanı Başlangıç Değeri (Initial State)
+## 4. State Management & React Design Patterns (Zustand)
 
-* `interface ChatState`: Yalnızca derleyiciye rehberlik eden kağıt üstündeki tiptir. Proje derlendiğinde **tamamen silinir**.
-* `useChatStore = create(...)`: Tarayıcı RAM'inde açılan gerçek değerlerdir. `channels: []` başlangıç değeri atanmazsa değer `undefined` kalır ve ilk render'da `channels.map(...)` çağrıldığında uygulama beyaz ekrana düşüp çöker.
+### 4.1 Prop Drilling vs. Global State Decision (`ChatHeader` vs. `MembersSidebar`)
 
----
-
-### 4.3 React Hook İsimlendirme Konvansiyonu (`useChatStore`)
-
-* React kuralları gereği durum barındıran veya state dinleyen her custom hook'un adı **`use` ile başlamak zorundadır**.
-* Modülün kendisi bir durum deposu olduğu için dosya adı `chatStore.ts` olarak adlandırılmıştır.
+* **Why does `MembersSidebar` receive 0 props?**  
+  Its required dependencies (active channel, channel members, presence status) reside globally inside Zustand stores (`useChatStore`, `useAuthStore`). The component selects its own slices directly from the store, avoiding unnecessary parent-to-child data forwarding (**Prop Drilling**).
+* **Why does `ChatHeader` receive 2 props?**  
+  The right sidebar visibility state (`isMembersOpen`) and toggle function (`onToggleMembers`) represent localized layout state (`useState` in `AppLayout`). Because this state does not affect database persistence or other global domains, it is cleanly communicated via explicit React **Props**.
 
 ---
 
-## 5. Gerçek Zamanlı Ağ ve Protokol Mimarisi (Networking & Protocols)
+### 4.2 Type Definitions (Interfaces) vs. Runtime Initial State
 
-### 5.1 HTTP REST vs. SignalR (WebSockets) Rol Ayrımı
+* `interface ChatState`: Pure compile-time contracts erased during the TypeScript compilation phase (`npm run build`). They produce zero JavaScript code.
+* `useChatStore = create(...)`: Allocates concrete heap memory at runtime. Omitting initial values such as `channels: []` would cause properties to initialize as `undefined`, triggering `TypeError: Cannot read properties of undefined (reading 'map')` and crashing the application on initial render.
 
-| İşlem Tipi | Protokol | Neden? |
+---
+
+### 4.3 Custom Hook Naming Conventions (`useChatStore`)
+
+* React enforces that any function leveraging React Hooks (or exposing state subscription hooks) **must be prefixed with `use`** (`useChatStore`).
+* The file itself is titled `chatStore.ts` to signify that it encapsulates the entire Chat Store module. File names and export identifiers do not need to be 1:1 identical in modern JavaScript architecture.
+
+---
+
+## 5. Real-Time Networking & Protocol Architecture
+
+### 5.1 HTTP REST vs. SignalR (WebSockets) Division of Responsibilities
+
+| Workflow | Protocol | Architectural Rationale |
 | :--- | :--- | :--- |
-| **Login / Register / Token Doğrulama** | HTTP REST | Durumsuz (stateless), tek seferlik istek-yanıt döngüsü. |
-| **Geçmiş Mesajları / Kanalları Çekme** | HTTP REST | Büyük veri paketleri ve sayfalama için en verimli yol. |
-| **Canlı Mesaj Gönderimi & Emojiler** | SignalR (WebSockets) | Çift yönlü, kalıcı açık bağlantı; anında broadcast. |
-| **"Yazıyor..." Bildirimi & Canlı Durum** | SignalR (WebSockets) | Milisaniye seviyesinde gecikmesiz bildirimler. |
+| **Authentication (Login / Register / Refresh)** | HTTP REST | Stateless, single-round-trip request/response lifecycle with JWT minting. |
+| **Historical Message Retrieval & Channel Directory** | HTTP REST | Ideal for paginated, cacheable, and high-volume data payloads. |
+| **Live Message Delivery & Emoji Reactions** | SignalR (WebSockets) | Bi-directional, persistent connection enabling instant server-to-client broadcasts. |
+| **Typing Indicators & User Presence** | SignalR (WebSockets) | Sub-millisecond state broadcasts with negligible overhead. |
 
 ---
 
-### 5.2 Geliştirme Ortamında CORS ve Vite Reverse Proxy Çözümü
+### 5.2 Development CORS Mitigation via Vite Reverse Proxy
 
-* **Sorun:** Frontend `5173` portunda, backend `5000` portunda çalışır. Tarayıcıların **Same-Origin Policy** güvenlik kuralı farklı portlar arasındaki doğrudan istekleri engeller.
-* **Çözüm:** `vite.config.ts` içinde reverse proxy kurulmuştur:
-  - Tarayıcı istekleri kendi çalıştığı `localhost:5173/api` ve `/hubs` adresine gönderir (CORS tetiklenmez).
-  - Vite dev server arka planda bu istekleri şeffaf bir şekilde `localhost:5000` adresine yönlendirir.
-
----
-
-### 5.3 Zaman Damgaları: UTC Depolama ve İstemci Taraflı Formatlama
-
-* **Veritabanı Kuralı:** Mesajların zamanı daima **UTC** formatında kaydedilir (`DateTime.UtcNow`). Bu kural sunucunun veya istemcilerin farklı coğrafi saat dilimlerinde olması kaynaklı karışıklıkları sıfırlar.
-* **Arayüz Kuralı:** İstemci tarafında `new Date(utcString)` ile kullanıcının yerel saatine çevrilir ve `Today at 14:30` veya `Sep 20 at 19:45` şeklinde gösterilir.
+* **The Issue:** The frontend dev server runs on `http://localhost:5173`, while ASP.NET Core listens on `http://localhost:5000`. Cross-origin browser calls trigger the browser's **Same-Origin Policy (SOP)**.
+* **The Solution:** A local reverse proxy is configured in `vite.config.ts`:
+  - Browser requests are dispatched to `localhost:5173/api` and `localhost:5173/hubs` (same-origin, bypassing CORS).
+  - The Vite dev server transparently proxies these network requests and WebSocket streams to `localhost:5000`.
 
 ---
 
-## 6. Stil Stratejisi ve Dağıtım Yol Haritası (Styling & Deployment)
+### 5.3 Timestamps: UTC Persistence & Client-Side Localization
 
-### 6.1 Hibrit Stil Stratejisi: Bootstrap 5 + Scoped Custom CSS (NPM vs CDN)
-
-* **Neden Hem Bootstrap Hem Özel CSS?**  
-  Bootstrap 5 genel grid yapısı, butonlar, modallar ve form bileşenleri için hızlı temel sunar; ancak Discord/Slack tarzı koyu tema (`#1e1f22`, `#2b2d31`, `#5865f2`), özel kaydırma çubukları ve mesaj balonları `style.css` ile özelleştirilmiştir.
-* **Neden NPM Paketi (Yerel Kurulum)?**  
-  CDN (`<script src="...">`) yerine `npm install bootstrap` tercih edilmiştir. Bu sayede:
-  1. Versiyon kilitlemesi yapılır (harici CDN çökmelerinde veya güncellemede site bozulmaz).
-  2. Vite bundler kullanılmayan CSS'leri eleyebilir (Tree shaking).
-  3. İnternet bağlantısı olmadan da yerel geliştirme yapılabilir.
+* **Backend Policy:** All timestamps are written and transmitted in ISO 8601 **UTC** format (`DateTime.UtcNow`). This eliminates timezone ambiguity, server location discrepancies, and daylight saving errors across distributed clients.
+* **Frontend Policy:** The client passes the UTC string into `new Date(utcString)` to format timestamps according to the user's localized browser clock (`Today at 14:30`, etc.).
 
 ---
 
-### 6.2 Canlıya Alma (Production Deployment) Mimarisi
+## 6. Styling Strategy & Production Deployment Roadmap
 
-PulseChat'i canlıya almak için iki ana mimari yol haritası mevcuttur:
+### 6.1 Hybrid Styling Strategy: Bootstrap 5 + Scoped Custom CSS (NPM vs. CDN)
 
-1. **Sunucusuz / PaaS Mimarisi (Serverless / Hybrid):**
-   * **Frontend:** Vercel veya Netlify (Statik SPA dağıtımı, ücretsiz CDN).
-   * **Backend:** Render veya Railway (ASP.NET Core Docker container, SignalR websocket desteği).
-   * **Veritabanı:** SQLite'tan yönetilen ücretsiz PostgreSQL'e geçiş (`Npgsql.EntityFrameworkCore.PostgreSQL`).
-2. **Tek VPS (Self-Hosted Linux / Nginx Mimarisi):**
-   * Tek bir 5$ Hetzner/DigitalOcean Ubuntu sunucusu üzerine Nginx kurulur.
-   * Nginx; hem React statik dosyalarını sunar hem de `/api` ve `/hubs` isteklerini arkada `systemd` servisi olarak koşan ASP.NET Core Kestrel (port 5000) sunucusuna yönlendirir (Reverse Proxy + Let's Encrypt SSL).
+* **Why Bootstrap alongside Custom CSS?**  
+  Bootstrap 5 provides standardized grid utilities, responsive breakpoints, accessible modals, and form controls. Bespoke styles (`#1e1f22`, `#2b2d31`, `#5865f2` Discord dark theme, custom slim scrollbars, message bubbles) are layered on top via scoped `style.css` rules.
+* **Why Local NPM Installation?**  
+  Installing packages via `npm install bootstrap` instead of CDN script tags ensures:
+  1. Strict version pinning (external CDN downtimes or upstream revisions cannot break the build).
+  2. Bundler tree-shaking and asset minification via Vite.
+  3. Seamless offline development.
 
 ---
 
-*Bu doküman, PulseChat mimarisinin modern yazılım mühendisliği prensiplerine (Clean Architecture, Type Safety, Separation of Concerns) tam uyumlu olarak inşa edildiğini gösteren teknik başvuru kaynağıdır.*
+### 6.2 Production Deployment Architecture
+
+PulseChat supports two primary production deployment paradigms:
+
+1. **Serverless / PaaS Architecture (Managed Cloud):**
+   * **Frontend:** Vercel or Netlify (Global CDN, automatic SSL, SPA routing).
+   * **Backend:** Render or Railway (Docker container running ASP.NET Core with native WebSocket support).
+   * **Database:** Managed PostgreSQL instance (migrating SQLite via `Npgsql.EntityFrameworkCore.PostgreSQL`).
+2. **Single Linux VPS (Self-Hosted Architecture):**
+   * A single Ubuntu VPS (DigitalOcean / Hetzner) running Nginx as an edge reverse proxy.
+   * Nginx serves static Vite production bundles (`dist/`) directly and forwards `/api` and `/hubs` traffic to the ASP.NET Core Kestrel daemon managed by `systemd`.
+
+---
+
+*This document serves as an authoritative technical reference demonstrating that PulseChat is engineered according to enterprise-grade standards: type-safe, resilient, performant, and maintainable.*
