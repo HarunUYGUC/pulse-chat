@@ -23,7 +23,7 @@ Bu doküman; **PulseChat** projesinin mimari tasarım sürecinde alınan kritik 
    - [3.2 Sorumluluk Sınırı (Separation of Concerns) ve API Sözleşmesi](#32-sorumluluk-sınırı-separation-of-concerns-ve-api-sözleşmesi)
    - [3.3 SQLite Dinamik Şema Kontrolü (`PRAGMA table_info`)](#33-sqlite-dinamik-şema-kontrolü-pragma-table_info)
 4. [Durum Yönetimi ve React Prensipleri (State & Store Design)](#4-durum-yönetimi-ve-react-prensipleri-state--store-design)
-   - [4.1 Prop Drilling vs. Global Store Kararı (`ChatHeader` vs. `MembersSidebar`)](#41-prop-drilling-vs-global-store-kararı-chatheader-vs-memberssidebar)
+   - [4.1 Tek Yönlü Veri Akışı, Durumu Yukarı Taşıma (Lifting State Up) ve 3 Kademeli Durum Matrisi](#41-tek-yönlü-veri-akışı-durumu-yukarı-taşıma-lifting-state-up-ve-3-kademeli-durum-matrisi)
    - [4.2 Tip Tanımı (Interface) vs. Çalışma Zamanı Başlangıç Değeri (Initial State)](#42-tip-tanımı-interface-vs-çalışma-zamanı-başlangıç-değeri-initial-state)
    - [4.3 React Hook İsimlendirme Konvansiyonu (`useChatStore`)](#43-react-hook-isimlendirme-konvansiyonu-usechatstore)
 5. [Gerçek Zamanlı Ağ ve Protokol Mimarisi (Networking & Protocols)](#5-gerçek-zamanlı-ağ-ve-protokol-mimarisi-networking--protocols)
@@ -188,12 +188,35 @@ const handleSubmit = async (e: React.FormEvent) => {
 
 ## 4. Durum Yönetimi ve React Prensipleri (State & Store Design)
 
-### 4.1 Prop Drilling vs. Global Store Kararı (`ChatHeader` vs. `MembersSidebar`)
+### 4.1 Tek Yönlü Veri Akışı, Durumu Yukarı Taşıma (Lifting State Up) ve 3 Kademeli Durum Matrisi
 
-* **`MembersSidebar` Neden 0 Prop Aldı?**  
-  İhtiyacı olan veriler (aktif kanal, üyeler, online durumu) zaten Zustand global store'unda (`useChatStore`, `useAuthStore`) mevcuttur. Bileşen veriyi doğrudan depodan kendisi çeker; aracı bileşenlere prop taşıtılmaz.
-* **`ChatHeader` Neden 2 Prop Aldı?**  
-  Panelin açık/kapalı durumu (`isMembersOpen`) ve aç/kapat fonksiyonu (`onToggleMembers`), sadece `AppLayout`'un yerel düzeniyle ilgilidir (`useState`). Store'da tutulmayan bu yerel UI verisi mecburen prop olarak aktarılır.
+React mimarisinin temelinde **Tek Yönlü Veri Akışı (One-Way Data Flow)** prensibi yer alır:
+* **Veri yukarıdan aşağıya akar** (Parent $\rightarrow$ Child: Props aracılığıyla).
+* **Olaylar/Emirler aşağıdan yukarıya akar** (Child $\rightarrow$ Parent: Callback fonksiyonları aracılığıyla).
+
+#### A. Durumu Yukarı Taşıma (Lifting State Up):
+Bir veri ve onu değiştiren fonksiyon, birden fazla kardeş bileşenin ortak koordinasyonuna ihtiyaç duyuyorsa, bu durum en yakın ortak ebeveyne (Parent) çıkarılır:
+* **PulseChat Örneği:** [AppLayout.tsx](file:///c:/Users/harun/Documents/antigravity/pulse-chat/frontend/src/components/layout/AppLayout.tsx) bileşeni, sağdaki üyeler panelinin açık/kapalı durumunu (`isMembersOpen`) ve onu tersine çeviren fonksiyonu (`onToggleMembers`) kendi yerel state'inde tutar.
+* **Child Rolü (`ChatHeader`):** Veriyi prop olarak alır, butonun aktif rengini yakar ve tıklandığında parent'tan gelen fonksiyonu tetikler. Veriyi bizzat değiştirmez, parent'a emir iletir.
+
+#### B. İstisna: Bileşene Özel Durumlar (Local Component State):
+Eğer bir veri ve onu değiştiren fonksiyon **sadece ve sadece o çocuğun kendi içini** ilgilendiriyorsa, parent'a taşınmaz:
+* **PulseChat Örneği:** [MessageItem.tsx](file:///c:/Users/harun/Documents/antigravity/pulse-chat/frontend/src/components/chat/MessageItem.tsx) içinde `const [showEmojiMenu, setShowEmojiMenu] = useState(false);` state'i bulunur.
+* Bir mesajın emoji menüsünün açılıp kapanması üstteki `AppLayout`'un veya `MessageList`'in umrunda değildir. Bu yüzden veri de fonksiyon da doğrudan Child'ın kendi içinde yönetilir.
+
+#### C. Prop Drilling vs. Global Store (Zustand):
+Uygulama hiyerarşisi derinleştikçe her şeyi parent'a taşımak, veriyi kat kat aşağıya elden teslim etme zorunluluğu doğurur (**Prop Drilling**).  
+PulseChat bu sorunu **Zustand (`chatStore.ts`)** ile çözer:
+* `MembersSidebar`, ihtiyaç duyduğu kanal ve üye verilerini aracı ebeveynlerden (AppLayout) prop olarak almaz.
+* Doğrudan merkezi Zustand store'una bağlanır (`useChatStore`) ve 0 prop ile bağımsız çalışır.
+
+#### D. 3 Kademeli Durum Karar Matrisi:
+
+| Kapsam / İhtiyaç | Durum Nerede Tutulmalı? | PulseChat Örneği |
+| :--- | :--- | :--- |
+| **Yalnızca bu tek bileşenin içini mi ilgilendiriyor?** | **Child Bileşenin Kendi İçinde** (`useState`) | `MessageItem` içindeki `showEmojiMenu` popover durumu. |
+| **2 veya daha fazla kardeş bileşenin koordinasyonunu mu gerektiriyor?** | **Ortak Ebeveynde (Lifting State Up - Props)** | `AppLayout` içindeki `isMembersOpen` (hem `ChatHeader` hem `MembersSidebar` bakar). |
+| **Uygulamanın genelini ve farklı sayfalarını mı ilgilendiriyor?** | **Global Store'da (Zustand)** | `channels`, `messages`, `onlineUsers`, `user` oturum bilgisi. |
 
 ---
 

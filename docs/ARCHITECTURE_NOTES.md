@@ -23,7 +23,7 @@ This document provides an exhaustive technical analysis of the architectural des
    - [3.2 Separation of Concerns & API Contracts](#32-separation-of-concerns--api-contracts)
    - [3.3 Dynamic Schema Verification with SQLite (`PRAGMA table_info`)](#33-dynamic-schema-verification-with-sqlite-pragma-table_info)
 4. [State Management & React Design Patterns (Zustand)](#4-state-management--react-design-patterns-zustand)
-   - [4.1 Prop Drilling vs. Global State Decision (`ChatHeader` vs. `MembersSidebar`)](#41-prop-drilling-vs-global-state-decision-chatheader-vs-memberssidebar)
+   - [4.1 One-Way Data Flow, Lifting State Up, and the 3-Tier State Decision Matrix](#41-one-way-data-flow-lifting-state-up-and-the-3-tier-state-decision-matrix)
    - [4.2 Type Definitions (Interfaces) vs. Runtime Initial State](#42-type-definitions-interfaces-vs-runtime-initial-state)
    - [4.3 Custom Hook Naming Conventions (`useChatStore`)](#43-custom-hook-naming-conventions-usechatstore)
 5. [Real-Time Networking & Protocol Architecture](#5-real-time-networking--protocol-architecture)
@@ -206,12 +206,35 @@ The `EnsureColumnExists` helper in [backend/Program.cs](file:///c:/Users/harun/D
 
 ## 4. State Management & React Design Patterns (Zustand)
 
-### 4.1 Prop Drilling vs. Global State Decision (`ChatHeader` vs. `MembersSidebar`)
+### 4.1 One-Way Data Flow, Lifting State Up, and the 3-Tier State Decision Matrix
 
-* **Why does `MembersSidebar` receive 0 props?**  
-  Its required dependencies (active channel, channel members, presence status) reside globally inside Zustand stores (`useChatStore`, `useAuthStore`). The component selects its own slices directly from the store, avoiding unnecessary parent-to-child data forwarding (**Prop Drilling**).
-* **Why does `ChatHeader` receive 2 props?**  
-  The right sidebar visibility state (`isMembersOpen`) and toggle function (`onToggleMembers`) represent localized layout state (`useState` in `AppLayout`). Because this state does not affect database persistence or other global domains, it is cleanly communicated via explicit React **Props**.
+At the core of React architecture lies the **One-Way Data Flow** paradigm:
+* **Data flows downward** (Parent $\rightarrow$ Child: via Props).
+* **Actions/Events flow upward** (Child $\rightarrow$ Parent: via Callback functions).
+
+#### A. Lifting State Up:
+When a piece of state and its corresponding mutator function are required to coordinate multiple sibling components, that state is elevated to their nearest common ancestor (Parent):
+* **PulseChat Implementation:** [AppLayout.tsx](file:///c:/Users/harun/Documents/antigravity/pulse-chat/frontend/src/components/layout/AppLayout.tsx) maintains the right member sidebar visibility (`isMembersOpen`) and its toggle handler (`onToggleMembers`) as local component state.
+* **Child Role (`ChatHeader`):** Receives the state as a prop, dynamically styles the active toggle button, and executes the parent's callback when clicked. It does not mutate the state directly; it dispatches an intent upward.
+
+#### B. Exception: Local Component State:
+When state and its mutations affect **strictly an isolated component's internal lifecycle**, elevating it to a parent introduces unnecessary coupling:
+* **PulseChat Implementation:** In [MessageItem.tsx](file:///c:/Users/harun/Documents/antigravity/pulse-chat/frontend/src/components/chat/MessageItem.tsx), `const [showEmojiMenu, setShowEmojiMenu] = useState(false);` controls the message's emoji popover.
+* Neither `AppLayout` nor `MessageList` needs awareness of an open emoji picker on message #42. Hence, state and handlers are encapsulated entirely within the child.
+
+#### C. Prop Drilling vs. Global State (Zustand):
+As component trees deepen, lifting every shared piece of data into parent components forces intermediate layers to pass down props they do not consume (**Prop Drilling**).  
+PulseChat avoids this antipattern via **Zustand (`chatStore.ts`)**:
+* `MembersSidebar` does not receive channel members or presence states through `AppLayout`.
+* It binds directly to the global store via `useChatStore` and operates completely decoupled with 0 props.
+
+#### D. 3-Tier State Decision Matrix:
+
+| Scope / Requirement | Where Should State Live? | PulseChat Example |
+| :--- | :--- | :--- |
+| **Strictly isolated to a single component?** | **Internal Child Component State** (`useState`) | `MessageItem` emoji menu popover (`showEmojiMenu`). |
+| **Coordinates 2 or more sibling components?** | **Common Ancestor (Lifting State Up - Props)** | `AppLayout` sidebar visibility (`isMembersOpen`). |
+| **Consumed across distributed pages/modules?** | **Global Store (Zustand)** | `channels`, `messages`, `onlineUsers`, `user` auth session. |
 
 ---
 
