@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PulseChat Frontend Dependency Graph</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #1e1f22;
+      --color-paper-2: #2b2d31;
+      --color-ink:     #f2f3f5;
+      --color-muted:   #949ba4;
+      --color-soft:    #80848e;
+      --color-rule:    #3f4147;
+      --color-accent:  #5865f2;
+      --color-accent-tint: rgba(88, 101, 242, 0.15);
+      --color-online:  #23a55a;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem 1.5rem;
+    }
+
+    .frame {
+      max-width: 1080px;
+      width: 100%;
+    }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-accent);
+      margin-bottom: 0.4rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.75rem, 2.5vw + 0.8rem, 2.3rem);
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-size: 0.92rem;
+      color: var(--color-muted);
+      margin-bottom: 1.5rem;
+      max-width: 720px;
+      line-height: 1.5;
+    }
+
+    .diagram-container {
+      background: #232428;
+      border: 1px solid var(--color-rule);
+      border-radius: 8px;
+      padding: 1.5rem;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+
+    svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--color-soft);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · Dependency Graph</p>
+    <h1>PulseChat Frontend Dependency Architecture</h1>
+    <p class="subtitle">Ranked dependency hierarchy showing strict separation between entry routing, presentation panels, Zustand reactive stores, and network bridges.</p>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 960 620" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="dep-title dep-desc">
+        <title id="dep-title">PulseChat Frontend Dependency Graph</title>
+        <desc id="dep-desc">A ranked directed acyclic dependency diagram mapping entry points down through stores to network services and backend boundaries.</desc>
+
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#949ba4"/>
+          </marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#5865f2"/>
+          </marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#23a55a"/>
+          </marker>
+
+          <!-- Drop shadow for node boxes -->
+          <filter id="shadow" x="-8%" y="-8%" width="116%" height="120%">
+            <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.3"/>
+          </filter>
+        </defs>
+
+        <!-- Rank Labels (Left Column) -->
+        <text x="32" y="72" fill="#80848e" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">RANK 0 · BOOTSTRAP</text>
+        <text x="32" y="192" fill="#80848e" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">RANK 1 · VIEWS & PANELS</text>
+        <text x="32" y="312" fill="#80848e" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">RANK 2 · ZUSTAND STORES</text>
+        <text x="32" y="432" fill="#80848e" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">RANK 3 · NETWORK BRIDGES</text>
+        <text x="32" y="552" fill="#80848e" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">RANK 4 · BACKEND TARGETS</text>
+
+        <!-- Baseline Guides (Hairlines) -->
+        <line x1="32" y1="84" x2="928" y2="84" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+        <line x1="32" y1="204" x2="928" y2="204" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+        <line x1="32" y1="324" x2="928" y2="324" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+        <line x1="32" y1="444" x2="928" y2="444" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+        <line x1="32" y1="564" x2="928" y2="564" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+
+        <!-- ================= CONNECTORS (Drawn underneath nodes) ================= -->
+        <!-- App.tsx -> AuthPage.tsx -->
+        <path d="M 440,96 V 140 Q 440,152 428,152 H 300 Q 288,152 288,164 V 176" fill="none" stroke="#949ba4" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <!-- App.tsx -> AppLayout.tsx -->
+        <path d="M 520,96 V 140 Q 520,152 532,152 H 660 Q 672,152 672,164 V 176" fill="none" stroke="#949ba4" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- AuthPage -> authStore -->
+        <line x1="288" y1="232" x2="288" y2="296" stroke="#949ba4" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- AppLayout -> chatStore -->
+        <line x1="672" y1="232" x2="672" y2="296" stroke="#949ba4" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- AppLayout -> authStore (Reads current userId) -->
+        <path d="M 620,232 V 264 Q 620,276 608,276 H 340 Q 328,276 328,284 V 296" fill="none" stroke="#949ba4" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arrow)"/>
+
+        <!-- authStore -> api.ts -->
+        <line x1="288" y1="352" x2="288" y2="416" stroke="#949ba4" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- chatStore -> api.ts (HTTP endpoints) -->
+        <path d="M 620,352 V 384 Q 620,396 608,396 H 340 Q 328,396 328,404 V 416" fill="none" stroke="#949ba4" stroke-width="1" marker-end="url(#arrow)"/>
+
+        <!-- chatStore -> signalr.ts (Join/Leave group calls) -->
+        <line x1="672" y1="352" x2="672" y2="416" stroke="#949ba4" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- api.ts -> Backend REST API (:5000) -->
+        <line x1="288" y1="472" x2="288" y2="536" stroke="#23a55a" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+
+        <!-- signalr.ts -> Backend ChatHub (:5000) -->
+        <line x1="672" y1="472" x2="672" y2="536" stroke="#23a55a" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+
+        <!-- Real-time Event Back-Edge (Cycle): signalr.ts -> chatStore.addMessage -->
+        <!-- Routed on the outer right margin per dependency-spec -->
+        <path d="M 764,444 H 820 Q 832,444 832,432 V 336 Q 832,324 820,324 H 764" fill="none" stroke="#5865f2" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arrow-accent)"/>
+        <!-- Back-edge Badge Label -->
+        <rect x="804" y="376" width="56" height="18" rx="3" fill="#1e1f22" stroke="#5865f2" stroke-width="1"/>
+        <text x="832" y="388" fill="#5865f2" font-size="7.5" font-family="'Geist Mono', monospace" font-weight="600" text-anchor="middle">EVENT ⚡</text>
+
+        <!-- ================= NODES ================= -->
+
+        <!-- RANK 0: App.tsx -->
+        <g transform="translate(390, 40)" filter="url(#shadow)">
+          <rect width="180" height="56" rx="6" fill="#2b2d31" stroke="#3f4147" stroke-width="1"/>
+          <!-- Fan-in Badge -->
+          <rect x="144" y="6" width="30" height="14" rx="2" fill="rgba(255,255,255,0.06)"/>
+          <text x="159" y="16" fill="#80848e" font-size="7.5" font-family="'Geist Mono', monospace" font-weight="500" text-anchor="middle">ROOT</text>
+          <text x="16" y="26" fill="#f2f3f5" font-size="12" font-family="'Geist', sans-serif" font-weight="600">App.tsx</text>
+          <text x="16" y="42" fill="#949ba4" font-size="8.5" font-family="'Geist Mono', monospace">Root & Session Router</text>
+        </g>
+
+        <!-- RANK 1: AuthPage.tsx -->
+        <g transform="translate(198, 176)" filter="url(#shadow)">
+          <rect width="180" height="56" rx="6" fill="#2b2d31" stroke="#3f4147" stroke-width="1"/>
+          <rect x="148" y="6" width="26" height="14" rx="2" fill="rgba(255,255,255,0.06)"/>
+          <text x="161" y="16" fill="#80848e" font-size="7.5" font-family="'Geist Mono', monospace" text-anchor="middle">1 in</text>
+          <text x="16" y="26" fill="#f2f3f5" font-size="12" font-family="'Geist', sans-serif" font-weight="600">AuthPage.tsx</text>
+          <text x="16" y="42" fill="#949ba4" font-size="8.5" font-family="'Geist Mono', monospace">Login & Registration</text>
+        </g>
+
+        <!-- RANK 1: AppLayout.tsx -->
+        <g transform="translate(582, 176)" filter="url(#shadow)">
+          <rect width="180" height="56" rx="6" fill="#2b2d31" stroke="#3f4147" stroke-width="1"/>
+          <rect x="148" y="6" width="26" height="14" rx="2" fill="rgba(255,255,255,0.06)"/>
+          <text x="161" y="16" fill="#80848e" font-size="7.5" font-family="'Geist Mono', monospace" text-anchor="middle">1 in</text>
+          <text x="16" y="26" fill="#f2f3f5" font-size="12" font-family="'Geist', sans-serif" font-weight="600">AppLayout.tsx</text>
+          <text x="16" y="42" fill="#949ba4" font-size="8.5" font-family="'Geist Mono', monospace">Sidebar + Chat + Panels</text>
+        </g>
+
+        <!-- RANK 2: authStore.ts -->
+        <g transform="translate(198, 296)" filter="url(#shadow)">
+          <rect width="180" height="56" rx="6" fill="#2b2d31" stroke="#3f4147" stroke-width="1"/>
+          <rect x="148" y="6" width="26" height="14" rx="2" fill="rgba(255,255,255,0.06)"/>
+          <text x="161" y="16" fill="#80848e" font-size="7.5" font-family="'Geist Mono', monospace" text-anchor="middle">2 in</text>
+          <text x="16" y="26" fill="#f2f3f5" font-size="12" font-family="'Geist', sans-serif" font-weight="600">authStore.ts</text>
+          <text x="16" y="42" fill="#949ba4" font-size="8.5" font-family="'Geist Mono', monospace">JWT & User Identity</text>
+        </g>
+
+        <!-- RANK 2: chatStore.ts (FOCAL / HIGHEST FAN-IN NODE) -->
+        <g transform="translate(582, 296)" filter="url(#shadow)">
+          <rect width="180" height="56" rx="6" fill="rgba(88, 101, 242, 0.12)" stroke="#5865f2" stroke-width="1.5"/>
+          <!-- Highlighted Fan-in Badge -->
+          <rect x="144" y="6" width="30" height="14" rx="2" fill="#5865f2"/>
+          <text x="159" y="16" fill="#ffffff" font-size="7.5" font-family="'Geist Mono', monospace" font-weight="600" text-anchor="middle">3 in</text>
+          <text x="16" y="26" fill="#f2f3f5" font-size="12" font-family="'Geist', sans-serif" font-weight="600">chatStore.ts</text>
+          <text x="16" y="42" fill="#5865f2" font-size="8.5" font-family="'Geist Mono', monospace" font-weight="500">Messages, Chans & Hub</text>
+        </g>
+
+        <!-- RANK 3: api.ts -->
+        <g transform="translate(198, 416)" filter="url(#shadow)">
+          <rect width="180" height="56" rx="6" fill="#2b2d31" stroke="#3f4147" stroke-width="1"/>
+          <rect x="148" y="6" width="26" height="14" rx="2" fill="rgba(255,255,255,0.06)"/>
+          <text x="161" y="16" fill="#80848e" font-size="7.5" font-family="'Geist Mono', monospace" text-anchor="middle">2 in</text>
+          <text x="16" y="26" fill="#f2f3f5" font-size="12" font-family="'Geist', sans-serif" font-weight="600">api.ts (Axios)</text>
+          <text x="16" y="42" fill="#949ba4" font-size="8.5" font-family="'Geist Mono', monospace">HTTP & Bearer Token</text>
+        </g>
+
+        <!-- RANK 3: signalr.ts -->
+        <g transform="translate(582, 416)" filter="url(#shadow)">
+          <rect width="180" height="56" rx="6" fill="#2b2d31" stroke="#3f4147" stroke-width="1"/>
+          <rect x="148" y="6" width="26" height="14" rx="2" fill="rgba(255,255,255,0.06)"/>
+          <text x="161" y="16" fill="#80848e" font-size="7.5" font-family="'Geist Mono', monospace" text-anchor="middle">2 in</text>
+          <text x="16" y="26" fill="#f2f3f5" font-size="12" font-family="'Geist', sans-serif" font-weight="600">signalr.ts</text>
+          <text x="16" y="42" fill="#949ba4" font-size="8.5" font-family="'Geist Mono', monospace">WebSocket Protocol</text>
+        </g>
+
+        <!-- RANK 4: ASP.NET Core API -->
+        <g transform="translate(198, 536)" filter="url(#shadow)">
+          <rect width="180" height="56" rx="6" fill="#18191c" stroke="#3f4147" stroke-width="1" stroke-dasharray="4,4"/>
+          <rect x="140" y="6" width="34" height="14" rx="2" fill="rgba(35,165,90,0.15)"/>
+          <text x="157" y="16" fill="#23a55a" font-size="7" font-family="'Geist Mono', monospace" font-weight="500" text-anchor="middle">:5000</text>
+          <text x="16" y="26" fill="#f2f3f5" font-size="12" font-family="'Geist', sans-serif" font-weight="600">ASP.NET Core API</text>
+          <text x="16" y="42" fill="#80848e" font-size="8.5" font-family="'Geist Mono', monospace">Controllers & SQLite DB</text>
+        </g>
+
+        <!-- RANK 4: ChatHub (:5000) -->
+        <g transform="translate(582, 536)" filter="url(#shadow)">
+          <rect width="180" height="56" rx="6" fill="#18191c" stroke="#3f4147" stroke-width="1" stroke-dasharray="4,4"/>
+          <rect x="140" y="6" width="34" height="14" rx="2" fill="rgba(35,165,90,0.15)"/>
+          <text x="157" y="16" fill="#23a55a" font-size="7" font-family="'Geist Mono', monospace" font-weight="500" text-anchor="middle">:5000</text>
+          <text x="16" y="26" fill="#f2f3f5" font-size="12" font-family="'Geist', sans-serif" font-weight="600">SignalR ChatHub</text>
+          <text x="16" y="42" fill="#80848e" font-size="8.5" font-family="'Geist Mono', monospace">Broadcasts & Presence</text>
+        </g>
+      </svg>
+
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background: #5865f2;"></div>
+          <span>Focal Hub (chatStore)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: #949ba4;"></div>
+          <span>Forward Dependency</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: #5865f2; border-radius: 50%;"></div>
+          <span>Real-time Inbound Event Cycle</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: #23a55a;"></div>
+          <span>External Backend Boundary</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

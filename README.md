@@ -152,5 +152,13 @@ Open **`http://localhost:5173`** in your browser.
 
 ---
 
+## 📚 Architecture & Deep-Dive Documentation
+
+For detailed engineering rationales, architectural design decisions, and deep-dive technical explanations, see:
+- 📖 [Architecture Notes & Engineering Deep Dive (docs/ARCHITECTURE_NOTES.md)](docs/ARCHITECTURE_NOTES.md)
+- 📊 [Interactive Frontend Dependency Graph (docs/frontend-dependency-graph.html)](docs/frontend-dependency-graph.html)
+
+---
+
 ## 📄 License
 This project is open-source and free ($0 cost) under the MIT License.
