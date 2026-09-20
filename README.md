@@ -161,4 +161,4 @@ For detailed engineering rationales, architectural design decisions, and deep-di
 ---
 
 ## 📄 License
-This project is open-source and free ($0 cost) under the MIT License.
+This project is open-source and free under the MIT License.
