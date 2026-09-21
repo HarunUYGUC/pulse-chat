@@ -22,6 +22,7 @@ Bu doküman; **PulseChat** projesinin mimari tasarım sürecinde alınan kritik 
    - [3.1 Kişiye Özel Veriler vs. Genel Veriler (Join Table & Contextual DTO)](#31-kişiye-özel-veriler-vs-genel-veriler-join-table--contextual-dto)
    - [3.2 Sorumluluk Sınırı (Separation of Concerns) ve API Sözleşmesi](#32-sorumluluk-sınırı-separation-of-concerns-ve-api-sözleşmesi)
    - [3.3 SQLite Dinamik Şema Kontrolü (`PRAGMA table_info`)](#33-sqlite-dinamik-şema-kontrolü-pragma-table_info)
+   - [3.4 Veritabanı Varlığı vs. Statik UI Kararı (Neden Kanallar Buton Olarak Kodlanmadı?)](#34-veritabanı-varlığı-vs-statik-ui-kararı-neden-kanallar-buton-olarak-kodlanmadı)
 4. [Durum Yönetimi ve React Prensipleri (State & Store Design)](#4-durum-yönetimi-ve-react-prensipleri-state--store-design)
    - [4.1 Tek Yönlü Veri Akışı, Durumu Yukarı Taşıma (Lifting State Up) ve 3 Kademeli Durum Matrisi](#41-tek-yönlü-veri-akışı-durumu-yukarı-taşıma-lifting-state-up-ve-3-kademeli-durum-matrisi)
    - [4.2 Tip Tanımı (Interface) vs. Çalışma Zamanı Başlangıç Değeri (Initial State)](#42-tip-tanımı-interface-vs-çalışma-zamanı-başlangıç-değeri-initial-state)
@@ -183,6 +184,26 @@ const handleSubmit = async (e: React.FormEvent) => {
 [backend/Program.cs](file:///c:/Users/harun/Documents/antigravity/pulse-chat/backend/Program.cs#L187) içinde bulunan `EnsureColumnExists` fonksiyonu:
 * SQLite veritabanlarında `PRAGMA table_info("TableName");` sorgusu çalıştırarak sütunların varlığını dinamik olarak denetler.
 * Eksik bir sütun varsa (`ALTER TABLE ... ADD COLUMN ...`) komutunu güvenle çalıştırır. Böylece veritabanını silip baştan oluşturmaya gerek kalmadan şema güncellemeleri korunur.
+
+---
+
+### 3.4 Veritabanı Varlığı vs. Statik UI Kararı (Neden Kanallar Buton Olarak Kodlanmadı?)
+
+#### Problem / Tasarım Sorusu:
+Uygulama ilk açıldığında ekranda görünen `#general`, `#random`, `#dev` gibi varsayılan kanallar; veritabanına hiç bulaşmadan doğrudan frontend koduna `<button>#general</button>` şeklinde statik (hardcoded) olarak yerleştirilemez miydi? Backend'de neden Seed Data olarak tanımlandı?
+
+#### Mimari Gerekçeler:
+1. **İlişkisel Bütünlük ve Yabancı Anahtar (Foreign Key Constraint):**
+   Bir kullanıcı `#general` kanalına mesaj attığında, veritabanı motoru `Messages` tablosuna `ChannelId: 1` kaydı girmeye çalışır. Eğer `Channels` tablosunda `Id: 1` olan bir satır yoksa, veritabanı `Foreign Key Constraint Violation` hatası vererek mesajı kaydetmeyi reddeder. Mesajlar, okunma bilgileri ve üyelikler ancak yaşayan bir veritabanı varlığına bağlanabilir.
+2. **Çoklu İstemci ve Tek Doğruluk Kaynağı (Single Source of Truth):**
+   Yarın PulseChat için bir Mobil Uygulama (React Native/Flutter) veya Masaüstü İstemcisi geliştirildiğinde; kanallar veritabanında olduğu için tüm platformlar `GET /api/channels` endpoint'inden aynı dinamik listeyi çeker. Kanalları frontend'e buton olarak yazmak, her yeni istemcide kod tekrarına ve veri tutarsızlığına yol açardı.
+3. **Seed Veri vs. Statik UI Karar Matrisi:**
+
+| Karar Kriteri | Evet ise $\rightarrow$ **Veritabanı / Seed Verisi** | Hayır ise $\rightarrow$ **Statik UI / Buton** |
+| :--- | :--- | :--- |
+| **Bu nesneye bağlı başka veriler birikecek mi?** | **Evet:** Kanalın arkasında mesajlar, üyeler, okunma bilgileri birikir. (`Channels`) | **Hayır:** "Karanlık Mod" butonu arkasında ilişkisel veri birikmez, sadece UI durumunu değiştirir. |
+| **Bu veri tüm kullanıcılar arasında paylaşılıyor mu?** | **Evet:** Ahmet'in `#general`'a yazdığı mesajı Mehmet de aynı kanalda görmelidir. | **Hayır:** "Sidebar'ı Daralt/Genişlet" butonu yalnızca o anki kullanıcının ekranını etkiler. |
+| **Bu veri zamanla çoğalabilir veya silinebilir mi?** | **Evet:** Kullanıcılar yeni kanal açabilir (`+ Create Channel`), silebilir veya güncelleyebilir. | **Hayır:** "Çıkış Yap (Logout)" butonu tektir; kullanıcılar yeni bir çıkış butonu oluşturamaz. |
 
 ---
 
