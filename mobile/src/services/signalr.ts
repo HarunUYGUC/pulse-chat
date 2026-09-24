@@ -11,8 +11,10 @@ import {
 } from '../types';
 
 let hubConnection: signalR.HubConnection | null = null;
+let activeToken: string | null = null;
 
 export const startSignalRConnection = async (token: string): Promise<signalR.HubConnection> => {
+  activeToken = token;
   if (hubConnection && hubConnection.state === signalR.HubConnectionState.Connected) {
     return hubConnection;
   }
@@ -110,11 +112,28 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
   });
 
   hubConnection.onreconnected(async () => {
-    const channels = useChatStore.getState().channels;
+    const store = useChatStore.getState();
+    const channels = store.channels;
     if (hubConnection?.state === signalR.HubConnectionState.Connected) {
       for (const ch of channels) {
         await hubConnection.invoke('JoinChannel', ch.id).catch(() => {});
       }
+    }
+    // Pull any missed messages for active channel immediately
+    if (store.activeChannelId) {
+      await store.fetchMessages(store.activeChannelId).catch(() => {});
+    }
+    await store.fetchChannels().catch(() => {});
+  });
+
+  hubConnection.onclose(async () => {
+    // If user is still authenticated, attempt reconnect after delay
+    if (activeToken) {
+      setTimeout(() => {
+        if (activeToken) {
+          ensureSignalRConnected(activeToken).catch(() => {});
+        }
+      }, 2000);
     }
   });
 
@@ -122,7 +141,26 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
   return hubConnection;
 };
 
+export const ensureSignalRConnected = async (token: string): Promise<void> => {
+  if (!token) return;
+  activeToken = token;
+
+  if (!hubConnection || hubConnection.state === signalR.HubConnectionState.Disconnected) {
+    try {
+      await startSignalRConnection(token);
+      const store = useChatStore.getState();
+      if (store.activeChannelId) {
+        await store.fetchMessages(store.activeChannelId).catch(() => {});
+      }
+      await store.fetchChannels().catch(() => {});
+    } catch {
+      // Ignored: will retry on next resume or onclose
+    }
+  }
+};
+
 export const stopSignalRConnection = async (): Promise<void> => {
+  activeToken = null;
   if (hubConnection) {
     try {
       if (hubConnection.state === signalR.HubConnectionState.Connected) {

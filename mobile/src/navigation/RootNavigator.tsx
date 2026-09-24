@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, AppState } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
-import { startSignalRConnection } from '../services/signalr';
+import { startSignalRConnection, ensureSignalRConnected } from '../services/signalr';
 import { AuthNavigator } from './AuthNavigator';
 import { DrawerNavigator } from './DrawerNavigator';
 import { colors } from '../theme/colors';
@@ -28,6 +28,29 @@ export const RootNavigator: React.FC = () => {
       fetchChannels();
     }
   }, [isAuthenticated, token]);
+
+  // Mobile AppState Listener: Auto-recover SignalR & fetch missed messages when returning from background
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active' && isAuthenticated && token) {
+        // 1. Reconnect SignalR if disconnected
+        ensureSignalRConnected(token).catch(() => {});
+
+        // 2. Fetch fresh channels & unread badges
+        fetchChannels().catch(() => {});
+
+        // 3. Immediately pull latest messages for the active channel (without needing to switch channels!)
+        const activeId = useChatStore.getState().activeChannelId;
+        if (activeId) {
+          useChatStore.getState().fetchMessages(activeId).catch(() => {});
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isAuthenticated, token, fetchChannels]);
 
   if (isLoading) {
     return (
