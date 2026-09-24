@@ -312,4 +312,31 @@ PulseChat'i canlıya almak için iki ana mimari yol haritası mevcuttur:
 
 ---
 
+## 7. Çapraz Platform Mobil İstemci Mimarisi (React Native & Expo)
+
+### 7.1 Çoklu İstemci Mimarisi ve Backend Kodunda Sıfır Değişiklik
+PulseChat projesinde mobil uygulamanın (`mobile/`) en önemli mimari başarısı, var olan ASP.NET Core 9 backend kodunda tek bir satır dahi değişiklik gerektirmeden çalışmasıdır:
+- **Ortak API Sözleşmesi:** Mobil istemci, web tarafı ile birebir aynı REST endpoint'lerini (`/api/auth/*`, `/api/channels/*`, `/api/messages/*`) ve aynı SignalR WebSocket Hub'ını (`/hubs/chat`) kullanır.
+- **Paylaşılan TypeScript Tipleri:** Domain modelleri (`User`, `Channel`, `Message`, `ReactionNotification`, `TypingNotification`), web ile mobil arasında 1:1 taşınabilirdir.
+- **Dinamik Ağ Dinleme (0.0.0.0 Binding):** Kestrel sunucusu `http://0.0.0.0:5000` adresine bağlandığında hem masaüstü tarayıcısının `localhost` isteklerini hem de yerel Wi-Fi ağındaki mobil telefon ve emülatörlerin isteklerini aynı anda karşılar.
+
+### 7.2 Dinamik Ağ Host Çözümleme (`config/env.ts`)
+Mobil cihazlar geliştirme bilgisayarındaki `localhost` adresini doğrudan kendi iç adresleri sandıkları için bilgisayara ulaşamazlar:
+- **Fiziksel Telefon (Expo Go):** Bilgisayarın yerel ağdaki Wi-Fi IP adresini (örn: `http://192.168.1.35:5000`) kullanır. `Constants.expoConfig?.hostUri` sayesinde bilgisayarın yerel IP'si çalışma anında dinamik olarak tespit edilir.
+- **Android Emülatörü:** Sanal yönlendirici adresi olan `http://10.0.2.2:5000` adresini kullanır.
+- **iOS Simülatörü:** Doğrudan `http://localhost:5000` adresine erişebilir.
+- **İsteğe Bağlı Manuel Adres:** `.env` dosyasındaki `EXPO_PUBLIC_API_URL` değişkeni ile istenilen IP adresi manuel olarak sabitlenebilir.
+
+### 7.3 Yerel Gezinme Düzeni (React Navigation 7)
+- **Discord Benzeri Çekmece Menü (Drawer):** Parmak kaydırmayla açılan sol çekmece menü (`ChannelDrawerContent`), kanalları, DM listesini (çevrim içi durum noktalarıyla) ve hızlı çıkış yapma profil butonunu barındırır.
+- **Yığın Gezinme (Stack):** Giriş (`LoginScreen` - 1 tıkla Alice/Bob demo girişi dahil) ve Kayıt (`RegisterScreen`) ekranlarını yönetir.
+- **Dinamik Kök Yönlendirici (Root Switcher):** `authStore.isAuthenticated` durumuna göre oturum açılmış ve açılmamış ekranlar arasında pürüzsüz geçiş yapar.
+
+### 7.4 Durum Yönetimi ve Oturum Kalıcılığı
+- **AsyncStorage:** JWT token ve aktif kanal/kullanıcı bilgileri `@react-native-async-storage/async-storage` ile cihaz hafızasında güvenle saklanır; uygulama kapatılıp açıldığında oturum kaybolmaz.
+- **Zustand Mobil Depoları:** `authStore.ts` ve `chatStore.ts` hafif, reaktif ve yüksek performanslı bir durum yönetimi sunar.
+
+---
+
 *Bu doküman, PulseChat mimarisinin modern yazılım mühendisliği prensiplerine (Clean Architecture, Type Safety, Separation of Concerns) tam uyumlu olarak inşa edildiğini gösteren teknik başvuru kaynağıdır.*
+

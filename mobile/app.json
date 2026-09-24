@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "PulseChat",
+    "slug": "pulse-chat",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "primaryColor": "#5865f2",
+    "backgroundColor": "#1e1f22",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.harunuyguc.pulsechat"
+    },
+    "android": {
+      "package": "com.harunuyguc.pulsechat",
+      "adaptiveIcon": {
+        "backgroundColor": "#1e1f22",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}

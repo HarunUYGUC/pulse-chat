@@ -330,4 +330,31 @@ PulseChat supports two primary production deployment paradigms:
 
 ---
 
+## 7. Cross-Platform Mobile Client Architecture (React Native & Expo)
+
+### 7.1 Multi-Client Architecture & Zero Backend Modification
+A core design milestone of PulseChat is that the mobile application in `mobile/` interacts with the exact same ASP.NET Core 9 backend without requiring a single line of backend C# modification:
+- **Shared API Contract:** The mobile app leverages identical REST endpoints (`/api/auth/*`, `/api/channels/*`, `/api/messages/*`) and the exact SignalR WebSocket hub (`/hubs/chat`).
+- **Shared Types:** TypeScript domain models (`User`, `Channel`, `Message`, `ReactionNotification`, `TypingNotification`) are 1:1 portable between the web and mobile codebases.
+- **Dynamic LAN Binding:** By running Kestrel on `http://0.0.0.0:5000`, the server accepts connections from both localhost (web browser) and external network interfaces (physical mobile devices on the same Wi-Fi, Android emulators, and Expo Go).
+
+### 7.2 Dynamic Network Host Resolution (`config/env.ts`)
+Mobile devices cannot resolve `localhost` directly to the development workstation:
+- **Physical Phone (Expo Go):** Must use the computer's LAN IP address (e.g. `http://192.168.1.35:5000`). PulseChat inspects `Constants.expoConfig?.hostUri` at runtime to automatically extract your computer's Wi-Fi IP address without manual hardcoding.
+- **Android Emulator:** Uses the virtual router loopback `http://10.0.2.2:5000`.
+- **iOS Simulator:** Can directly access `http://localhost:5000`.
+- **Custom Override:** An optional `EXPO_PUBLIC_API_URL` environment variable in `.env` provides an explicit override when needed.
+
+### 7.3 Native Navigation Paradigm (React Navigation 7)
+- **Discord-Style Drawer Navigator:** A gesture-driven slide-out drawer (`ChannelDrawerContent`) contains the server channel list, direct messages list with live presence dots, and user profile footer with a one-tap sign-out action.
+- **Stack Navigator:** Handles unauthenticated workflows (`LoginScreen` with 1-click Alice/Bob quick login, and `RegisterScreen`).
+- **Dynamic Root Switcher:** `RootNavigator` monitors `authStore.isAuthenticated` to dynamically swap between `AuthNavigator` and `DrawerNavigator` with a smooth transition.
+
+### 7.4 Persistence & Mobile State Management
+- **AsyncStorage:** Token and active session persistence is managed via `@react-native-async-storage/async-storage`, restoring user state on app cold starts.
+- **Zustand Mobile Stores:** `authStore.ts` and `chatStore.ts` provide reactive, lightweight state synchronization decoupled from React component rendering cycles.
+
+---
+
 *This document serves as an authoritative technical reference demonstrating that PulseChat is engineered according to enterprise-grade standards: type-safe, resilient, performant, and maintainable.*
+

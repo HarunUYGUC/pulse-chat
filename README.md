@@ -48,7 +48,15 @@ PulseChat is a production-grade, full-stack real-time messaging application (Sla
 - **ORM / Database**: Entity Framework Core 9 with SQLite
 - **Security**: JWT Bearer Authentication (`Microsoft.AspNetCore.Authentication.JwtBearer`), BCrypt password hashing (`BCrypt.Net-Next`)
 
-### Frontend
+### Mobile Client (React Native + Expo)
+- **Framework**: React Native 0.86 with Expo SDK 57 (TypeScript)
+- **Navigation**: React Navigation 7 (Drawer for Channels/DMs, Stack for Auth)
+- **Styling**: Custom Discord dark theme tokens
+- **Persistence**: `@react-native-async-storage/async-storage` for JWT & active session
+- **Real-Time Hub**: `@microsoft/signalr` with auto-reconnection
+- **Icons**: `lucide-react-native`
+
+### Frontend (Web)
 - **Framework**: React 18/19 with TypeScript
 - **Bundler**: Vite
 - **UI / Styling**: Bootstrap 5.3 + Lucide Icons + Custom Slack/Discord Dark Theme
@@ -96,8 +104,24 @@ pulse-chat/
 │   │   └── index.css                  # Custom theme tokens & styles
 │   └── vite.config.ts
 │
-├── start.bat                          # 1-Click Windows Batch Launcher
-├── start.ps1                          # 1-Click PowerShell Launcher
+├── mobile/                            # React Native + Expo Mobile Application
+│   ├── src/
+│   │   ├── components/                # MessageItem, MessageInput, ChannelDrawerContent, TypingBar
+│   │   ├── config/env.ts              # LAN/Emulator backend host resolver
+│   │   ├── navigation/                # AuthNavigator, DrawerNavigator, RootNavigator
+│   │   ├── screens/                   # LoginScreen, RegisterScreen, ChatScreen
+│   │   ├── services/                  # api.ts (Axios), signalr.ts (SignalR Hub)
+│   │   ├── store/                     # Zustand stores (authStore, chatStore)
+│   │   ├── theme/colors.ts            # Discord dark color tokens
+│   │   └── types/index.ts             # Domain models & interfaces
+│   ├── app.json                       # Expo configuration
+│   ├── App.tsx                        # Root entry point with GestureHandler & Providers
+│   └── package.json
+│
+├── start.bat                          # 1-Click Web + Backend Windows Batch Launcher
+├── start.ps1                          # 1-Click Web + Backend PowerShell Launcher
+├── start-mobile.bat                   # 1-Click Mobile Expo Windows Batch Launcher
+├── start-mobile.ps1                   # 1-Click Mobile Expo PowerShell Launcher
 └── README.md
 ```
 
@@ -108,13 +132,19 @@ pulse-chat/
 ### Prerequisites
 - [.NET SDK 9.0+](https://dotnet.microsoft.com/download)
 - [Node.js 18+](https://nodejs.org/)
+- [Expo Go App](https://expo.dev/go) on your iOS/Android phone, or an Android/iOS emulator
 
 ### 1. Launch with One Click (Windows)
 Double-click `start.bat` or run:
 ```powershell
 .\start.ps1
 ```
-This boots both the backend (`http://localhost:5000`) and frontend (`http://localhost:5173`) in separate terminal windows.
+This boots both the backend (`http://0.0.0.0:5000`) and the web frontend (`http://localhost:5173`) in separate terminal windows.
+
+To launch the **Mobile Client**, double-click `start-mobile.bat` or run:
+```powershell
+.\start-mobile.ps1
+```
 
 ---
 
@@ -123,11 +153,11 @@ This boots both the backend (`http://localhost:5000`) and frontend (`http://loca
 #### Terminal 1 — Backend:
 ```bash
 cd backend
-dotnet run --urls "http://localhost:5000"
+dotnet run --urls "http://0.0.0.0:5000"
 ```
-The backend initializes SQLite (`pulsechat.db`) and seeds `#general`, `#random`, and `#dev`.
+The backend initializes SQLite (`pulsechat.db`) and seeds `#general`, `#random`, and `#dev`. Listening on `0.0.0.0` allows mobile devices on the same Wi-Fi network to connect.
 
-#### Terminal 2 — Frontend:
+#### Terminal 2 — Frontend (Web):
 ```bash
 cd frontend
 npm install
@@ -135,10 +165,22 @@ npm run dev
 ```
 Open **`http://localhost:5173`** in your browser.
 
+#### Terminal 3 — Mobile (React Native + Expo):
+```bash
+cd mobile
+npm install
+# Option A: Run on your phone (Expo Go) or emulator:
+npx expo start
+# Option B: Run directly in your Android Emulator:
+npx expo start --android
+```
+Scan the QR code with **Expo Go** (Android) or the Camera app (iOS) while connected to the same Wi-Fi network.
+
 ---
 
-## 🧪 Testing Real-Time Sync (Dual-Browser)
+## 🧪 Testing Real-Time Sync
 
+### A. Dual-Browser (Web to Web)
 1. Open `http://localhost:5173` in **Chrome Regular Window**:
    - Click **"Sign in as Alice"** (or create a new account).
 2. Open `http://localhost:5173` in **Chrome Incognito** or **Firefox/Edge**:
@@ -149,6 +191,16 @@ Open **`http://localhost:5173`** in your browser.
    - Bob shows a **green online dot** in Alice's member list.
    - Click **"+"** next to Direct Messages to start a private conversation between Alice and Bob.
    - Send emoji reactions on messages.
+
+### B. Cross-Platform (Web to Mobile)
+1. Ensure your PC and mobile device are on the **same Wi-Fi network**.
+2. Run `start.bat` (or `.\start.ps1`) to run Backend & Web.
+3. In `mobile/`:
+   - Copy `.env.example` to `.env` if needed, or leave it to auto-detect your local IP.
+   - Run `npx expo start` (or double-click `start-mobile.bat`).
+4. On your PC browser, sign in as **Alice**.
+5. On your Mobile device (via Expo Go or Android Emulator), tap **"Sign in as Bob"**.
+6. Send a message from mobile $\rightarrow$ see it pop up instantly on your PC browser! Send a reaction or start typing on either device to verify bi-directional SignalR streaming.
 
 ---
 
