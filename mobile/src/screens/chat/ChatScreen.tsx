@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,8 @@ import { colors } from '../../theme/colors';
 import { MessageItem } from '../../components/MessageItem';
 import { MessageInput } from '../../components/MessageInput';
 import { TypingBar } from '../../components/TypingBar';
-import { Menu, Hash, Shield, Lock } from 'lucide-react-native';
+import { ChannelMembersModal } from '../../components/ChannelMembersModal';
+import { Menu, Hash, Shield, Lock, Users } from 'lucide-react-native';
 import { Message } from '../../types';
 
 interface ChatScreenProps {
@@ -37,6 +38,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   } = useChatStore();
 
   const { user: currentUser } = useAuthStore();
+  const [showMembersModal, setShowMembersModal] = useState(false);
 
   const activeChannel = channels.find((c) => c.id === activeChannelId);
   const channelMessages = useMemo(() => {
@@ -113,6 +115,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
               </Text>
             ) : null}
           </View>
+
+          {!isDm && (
+            <TouchableOpacity
+              style={styles.membersButton}
+              onPress={() => setShowMembersModal(true)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Users color={colors.textSecondary} size={22} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Message Feed Area */}
@@ -161,6 +173,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
           />
         )}
       </KeyboardAvoidingView>
+
+      {/* Channel Members Sheet Modal */}
+      <ChannelMembersModal
+        visible={showMembersModal}
+        onClose={() => setShowMembersModal(false)}
+        channel={activeChannel}
+      />
     </SafeAreaView>
   );
 };
@@ -185,6 +204,10 @@ const styles = StyleSheet.create({
   },
   menuButton: {
     marginRight: 14,
+    padding: 4,
+  },
+  membersButton: {
+    marginLeft: 12,
     padding: 4,
   },
   headerInfo: {
