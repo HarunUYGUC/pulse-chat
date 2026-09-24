@@ -79,11 +79,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   quickLogin: async (username: string): Promise<void> => {
-    const data: LoginData = {
-      usernameOrEmail: username,
-      password: 'Password123!',
-    };
-    await get().login(data);
+    const demoPassword = 'Password123!';
+    const demoEmail = `${username.toLowerCase()}@pulsechat.local`;
+
+    try {
+      // Try login first
+      await get().login({
+        usernameOrEmail: username,
+        password: demoPassword,
+      });
+    } catch {
+      // If user does not exist in DB yet, auto-register
+      await get().register({
+        username,
+        email: demoEmail,
+        password: demoPassword,
+        avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${username}&backgroundColor=5865f2`,
+      });
+    }
   },
 
   register: async (data: RegisterData) => {

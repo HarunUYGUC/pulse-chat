@@ -165,14 +165,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             >
               <Text style={styles.quickBtnText}>Bob</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickBtn}
-              onPress={() => handleQuickLogin('charlie')}
-              disabled={submitting}
-            >
-              <Text style={styles.quickBtnText}>Charlie</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
