@@ -6,10 +6,11 @@ import { StyleSheet, LogBox } from 'react-native';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { colors } from './src/theme/colors';
 
-// Ignore normal mobile background / reconnect websocket logs
+// Ignore normal mobile background / reconnect websocket and HMR logs
 LogBox.ignoreLogs([
   'WebSocket closed with status code: 1006',
   'Software caused connection abort',
+  'Cannot connect to Expo CLI',
 ]);
 
 export default function App() {
