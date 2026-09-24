@@ -37,6 +37,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       const response = await api.get<User>('/auth/me');
+      useChatStore.getState().setCurrentUserId(response.data.id);
       set({
         user: response.data,
         isAuthenticated: true,
@@ -46,6 +47,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
     } catch {
       await AsyncStorage.removeItem('pulsechat_token');
+      useChatStore.getState().setCurrentUserId(null);
       set({
         user: null,
         token: null,
@@ -62,6 +64,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { token, user } = response.data;
       await AsyncStorage.setItem('pulsechat_token', token);
       useChatStore.getState().resetChat();
+      useChatStore.getState().setCurrentUserId(user.id);
       set({
         token,
         user,
@@ -106,6 +109,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { token, user } = response.data;
       await AsyncStorage.setItem('pulsechat_token', token);
       useChatStore.getState().resetChat();
+      useChatStore.getState().setCurrentUserId(user.id);
       set({
         token,
         user,

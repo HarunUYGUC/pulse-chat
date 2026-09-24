@@ -2,10 +2,20 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../services/api';
 import { Channel, Message, User, ReactionNotification } from '../types';
-import { useAuthStore } from './authStore';
-import { joinChannel as signalrJoin, leaveChannel as signalrLeave } from '../services/signalr';
+
+// Break circular dependency with signalr.ts via lazy runtime calls
+const signalrJoin = async (channelId: number) => {
+  const { joinChannel } = require('../services/signalr');
+  return joinChannel(channelId);
+};
+
+const signalrLeave = async (channelId: number) => {
+  const { leaveChannel } = require('../services/signalr');
+  return leaveChannel(channelId);
+};
 
 interface ChatState {
+  currentUserId: number | null;
   channels: Channel[];
   activeChannelId: number | null;
   messages: Record<number, Message[]>;
@@ -15,6 +25,8 @@ interface ChatState {
   lastReadMessageIds: Record<number, number | null>;
   allUsers: User[];
   isLoadingMessages: boolean;
+
+  setCurrentUserId: (id: number | null) => void;
 
   setChannels: (channels: Channel[]) => void;
   addChannel: (channel: Channel) => void;
@@ -42,6 +54,7 @@ interface ChatState {
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
+  currentUserId: null,
   channels: [],
   activeChannelId: null,
   messages: {},
@@ -52,8 +65,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   allUsers: [],
   isLoadingMessages: false,
 
+  setCurrentUserId: (id) => set({ currentUserId: id }),
+
   resetChat: () =>
     set({
+      currentUserId: null,
       channels: [],
       activeChannelId: null,
       messages: {},
@@ -144,7 +160,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }),
 
   userLeftChannel: (channelId: number, userId: number) => {
-    const currentUserId = useAuthStore.getState().user?.id;
+    const currentUserId = get().currentUserId;
     if (currentUserId && userId === currentUserId) {
       get().removeChannel(channelId);
       return;
@@ -164,7 +180,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   setActiveChannel: (channelId) => {
-    const currentUserId = useAuthStore.getState().user?.id;
+    const currentUserId = get().currentUserId;
     const storageKey = currentUserId
       ? `pulsechat_last_channel_${currentUserId}`
       : 'pulsechat_last_channel';
@@ -334,7 +350,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       if (channels.length === 0) return;
 
-      const currentUserId = useAuthStore.getState().user?.id;
+      const currentUserId = get().currentUserId;
       const storageKey = currentUserId
         ? `pulsechat_last_channel_${currentUserId}`
         : 'pulsechat_last_channel';

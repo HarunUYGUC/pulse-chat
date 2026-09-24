@@ -25,6 +25,23 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
     }
   }
 
+  const customLogger: signalR.ILogger = {
+    log(logLevel: signalR.LogLevel, message: string) {
+      // Normal mobile lifecycle events (screen lock, backgrounding, reloads) produce code 1006.
+      // Auto-reconnect handles these cleanly; suppress them from triggering LogBox full-screen red errors.
+      if (
+        message.includes('1006') ||
+        message.includes('Software caused connection abort') ||
+        message.includes('stopped')
+      ) {
+        return;
+      }
+      if (logLevel >= signalR.LogLevel.Error) {
+        console.warn('[SignalR Warning]', message);
+      }
+    },
+  };
+
   hubConnection = new signalR.HubConnectionBuilder()
     .withUrl(HUB_URL, {
       accessTokenFactory: () => token,
@@ -32,7 +49,7 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
       transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
     })
     .withAutomaticReconnect([0, 1500, 5000, 10000])
-    .configureLogging(signalR.LogLevel.Warning)
+    .configureLogging(customLogger)
     .build();
 
   // SignalR Event Listeners
@@ -108,9 +125,11 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
 export const stopSignalRConnection = async (): Promise<void> => {
   if (hubConnection) {
     try {
-      await hubConnection.stop();
-    } catch (err) {
-      console.error('Error stopping SignalR connection:', err);
+      if (hubConnection.state === signalR.HubConnectionState.Connected) {
+        await hubConnection.stop();
+      }
+    } catch {
+      // Ignored: expected when connection is already dropped or aborted
     }
     hubConnection = null;
   }
