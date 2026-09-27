@@ -32,32 +32,66 @@ public class ChannelsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<ChannelDto>>> GetChannels()
+    public async Task<ActionResult<List<ChannelDto>>> GetChannels([FromQuery] int? workspaceId = null)
     {
         var currentUserId = GetCurrentUserId();
 
-        // Discord model: ensure user is a member of all public channels
-        var missingPublicChannels = await _db.Channels
-            .Where(c => !c.IsDirectMessage && !c.IsPrivate && !c.Members.Any(m => m.UserId == currentUserId))
-            .ToListAsync();
-
-        if (missingPublicChannels.Count > 0)
+        List<int> validWorkspaceIds;
+        if (workspaceId.HasValue)
         {
-            foreach (var ch in missingPublicChannels)
+            var isMember = await _db.WorkspaceMembers
+                .AnyAsync(wm => wm.WorkspaceId == workspaceId.Value && wm.UserId == currentUserId);
+            if (!isMember)
+                return StatusCode(403, new { message = "You must be a member of this workspace to view its channels." });
+
+            validWorkspaceIds = new List<int> { workspaceId.Value };
+
+            // Auto-join public channels of THIS workspace (excluding channels user was kicked from)
+            var kickedChannelIds = await _db.ChannelKickRecords
+                .Where(k => k.UserId == currentUserId)
+                .Select(k => k.ChannelId)
+                .ToListAsync();
+
+            var missingPublicChannels = await _db.Channels
+                .Where(c => c.WorkspaceId == workspaceId.Value && !c.IsDirectMessage && !c.IsPrivate 
+                            && !c.Members.Any(m => m.UserId == currentUserId)
+                            && !kickedChannelIds.Contains(c.Id))
+                .ToListAsync();
+
+            if (missingPublicChannels.Count > 0)
             {
-                _db.ChannelMembers.Add(new ChannelMember
+                foreach (var ch in missingPublicChannels)
                 {
-                    ChannelId = ch.Id,
-                    UserId = currentUserId,
-                    JoinedAt = DateTime.UtcNow
-                });
+                    _db.ChannelMembers.Add(new ChannelMember
+                    {
+                        ChannelId = ch.Id,
+                        UserId = currentUserId,
+                        JoinedAt = DateTime.UtcNow
+                    });
+                }
+                await _db.SaveChangesAsync();
             }
-            await _db.SaveChangesAsync();
+        }
+        else
+        {
+            validWorkspaceIds = await _db.WorkspaceMembers
+                .Where(wm => wm.UserId == currentUserId)
+                .Select(wm => wm.WorkspaceId)
+                .ToListAsync();
         }
 
-        // 1. Get all channels where current user is a member
+        // Get IDs of users who share these workspaces with current user (for DMs)
+        var mutualUserIds = await _db.WorkspaceMembers
+            .Where(wm => validWorkspaceIds.Contains(wm.WorkspaceId) && wm.UserId != currentUserId)
+            .Select(wm => wm.UserId)
+            .Distinct()
+            .ToListAsync();
+
+        // 1. Get channels where current user is a member, scoped to valid workspaces (or mutual DMs)
         var userChannels = await _db.Channels
-            .Where(c => c.Members.Any(m => m.UserId == currentUserId))
+            .Where(c => c.Members.Any(m => m.UserId == currentUserId) &&
+                       ((c.WorkspaceId.HasValue && validWorkspaceIds.Contains(c.WorkspaceId.Value)) ||
+                        (c.IsDirectMessage && c.Members.Any(m => mutualUserIds.Contains(m.UserId)))))
             .Include(c => c.Owner)
             .Include(c => c.Members)
                 .ThenInclude(m => m.User)
@@ -93,28 +127,64 @@ public class ChannelsController : ControllerBase
     }
 
     [HttpGet("browse")]
-    public async Task<ActionResult<List<BrowseChannelDto>>> BrowseChannels()
+    public async Task<ActionResult<List<BrowseChannelDto>>> BrowseChannels([FromQuery] int? workspaceId = null)
     {
         var currentUserId = GetCurrentUserId();
 
-        // All non-DM channels that are public OR where the user is already a member
-        var channels = await _db.Channels
-            .Where(c => !c.IsDirectMessage && (!c.IsPrivate || c.Members.Any(m => m.UserId == currentUserId)))
+        var query = _db.Channels
+            .Where(c => !c.IsDirectMessage && (!c.IsPrivate || c.Members.Any(m => m.UserId == currentUserId)));
+
+        if (workspaceId.HasValue)
+        {
+            var isMember = await _db.WorkspaceMembers
+                .AnyAsync(wm => wm.WorkspaceId == workspaceId.Value && wm.UserId == currentUserId);
+            if (!isMember)
+                return StatusCode(403, new { message = "You must be a member of this workspace to browse its channels." });
+
+            query = query.Where(c => c.WorkspaceId == workspaceId.Value);
+        }
+        else
+        {
+            var userWorkspaceIds = await _db.WorkspaceMembers
+                .Where(wm => wm.UserId == currentUserId)
+                .Select(wm => wm.WorkspaceId)
+                .ToListAsync();
+            query = query.Where(c => c.WorkspaceId.HasValue && userWorkspaceIds.Contains(c.WorkspaceId.Value));
+        }
+
+        var channels = await query
             .Include(c => c.Owner)
             .Include(c => c.Members)
             .OrderBy(c => c.IsProtected ? 0 : 1)
             .ThenBy(c => c.Name)
             .ToListAsync();
 
+        var channelIds = channels.Select(c => c.Id).ToList();
+
+        var userKickedChannelIds = (await _db.ChannelKickRecords
+            .Where(k => channelIds.Contains(k.ChannelId) && k.UserId == currentUserId)
+            .Select(k => k.ChannelId)
+            .ToListAsync())
+            .ToHashSet();
+
+        var userPendingRequestChannelIds = (await _db.ChannelJoinRequests
+            .Where(r => channelIds.Contains(r.ChannelId) && r.UserId == currentUserId && r.Status == "Pending")
+            .Select(r => r.ChannelId)
+            .ToListAsync())
+            .ToHashSet();
+
         var browseList = channels.Select(c => new BrowseChannelDto
         {
             Id = c.Id,
             Name = c.Name,
             Description = c.Description,
+            WorkspaceId = c.WorkspaceId,
             IsPrivate = c.IsPrivate,
             IsProtected = c.IsProtected,
             MemberCount = c.Members.Count,
             IsMember = c.Members.Any(m => m.UserId == currentUserId),
+            WasKicked = userKickedChannelIds.Contains(c.Id),
+            HasPendingJoinRequest = userPendingRequestChannelIds.Contains(c.Id),
             OwnerId = c.OwnerId,
             OwnerUsername = c.Owner?.Username,
             CreatedAt = c.CreatedAt
@@ -157,15 +227,29 @@ public class ChannelsController : ControllerBase
         var currentUserId = GetCurrentUserId();
         var normalizedName = dto.Name.Trim().ToLowerInvariant().Replace(" ", "-");
 
-        if (await _db.Channels.AnyAsync(c => !c.IsDirectMessage && c.Name.ToLower() == normalizedName))
+        int targetWorkspaceId = dto.WorkspaceId ?? await _db.WorkspaceMembers
+            .Where(wm => wm.UserId == currentUserId)
+            .Select(wm => wm.WorkspaceId)
+            .FirstOrDefaultAsync();
+
+        if (targetWorkspaceId == 0)
+            return BadRequest(new { message = "User does not belong to any workspace. Please create or join a workspace first." });
+
+        var isWorkspaceMember = await _db.WorkspaceMembers
+            .AnyAsync(wm => wm.WorkspaceId == targetWorkspaceId && wm.UserId == currentUserId);
+        if (!isWorkspaceMember)
+            return StatusCode(403, new { message = "You must be a member of the workspace to create a channel in it." });
+
+        if (await _db.Channels.AnyAsync(c => !c.IsDirectMessage && c.WorkspaceId == targetWorkspaceId && c.Name.ToLower() == normalizedName))
         {
-            return BadRequest(new { message = $"Channel #{normalizedName} already exists." });
+            return BadRequest(new { message = $"Channel #{normalizedName} already exists in this workspace." });
         }
 
         var channel = new Channel
         {
             Name = normalizedName,
             Description = dto.Description?.Trim(),
+            WorkspaceId = targetWorkspaceId,
             IsDirectMessage = false,
             IsPrivate = dto.IsPrivate,
             IsProtected = false,
@@ -186,32 +270,37 @@ public class ChannelsController : ControllerBase
 
         if (!dto.IsPrivate)
         {
-            // Discord model: all workspace users automatically join public channels
-            var otherUsers = await _db.Users.Where(u => u.Id != currentUserId).ToListAsync();
-            foreach (var u in otherUsers)
+            // All members of this workspace automatically join public channel
+            var workspaceMembers = await _db.WorkspaceMembers
+                .Where(wm => wm.WorkspaceId == targetWorkspaceId && wm.UserId != currentUserId)
+                .ToListAsync();
+
+            foreach (var wm in workspaceMembers)
             {
                 _db.ChannelMembers.Add(new ChannelMember
                 {
                     ChannelId = channel.Id,
-                    UserId = u.Id,
+                    UserId = wm.UserId,
                     JoinedAt = DateTime.UtcNow
                 });
             }
         }
         else if (dto.InitialMemberIds != null && dto.InitialMemberIds.Count > 0)
         {
-            // If private channel and initial members were selected, add them
-            foreach (var targetId in dto.InitialMemberIds.Distinct())
+            // If private channel, add specified initial members who belong to this workspace
+            var validWorkspaceMemberIds = await _db.WorkspaceMembers
+                .Where(wm => wm.WorkspaceId == targetWorkspaceId && dto.InitialMemberIds.Contains(wm.UserId) && wm.UserId != currentUserId)
+                .Select(wm => wm.UserId)
+                .ToListAsync();
+
+            foreach (var targetId in validWorkspaceMemberIds)
             {
-                if (targetId != currentUserId && await _db.Users.AnyAsync(u => u.Id == targetId))
+                _db.ChannelMembers.Add(new ChannelMember
                 {
-                    _db.ChannelMembers.Add(new ChannelMember
-                    {
-                        ChannelId = channel.Id,
-                        UserId = targetId,
-                        JoinedAt = DateTime.UtcNow
-                    });
-                }
+                    ChannelId = channel.Id,
+                    UserId = targetId,
+                    JoinedAt = DateTime.UtcNow
+                });
             }
         }
 
@@ -229,7 +318,7 @@ public class ChannelsController : ControllerBase
         if (!channel.IsPrivate)
         {
             // Public channel: broadcast to everyone in the workspace
-            await _hubContext.Clients.All.SendAsync("ChannelCreated", channelDto);
+            await _hubContext.Clients.Group($"workspace-{targetWorkspaceId}").SendAsync("ChannelCreated", channelDto);
         }
         else
         {
@@ -244,7 +333,7 @@ public class ChannelsController : ControllerBase
     }
 
     [HttpPost("{id}/join")]
-    public async Task<ActionResult<ChannelDto>> JoinChannel(int id)
+    public async Task<IActionResult> JoinChannel(int id)
     {
         var currentUserId = GetCurrentUserId();
         var channel = await _db.Channels
@@ -262,40 +351,92 @@ public class ChannelsController : ControllerBase
             return Forbid();
 
         var isAlreadyMember = channel.Members.Any(m => m.UserId == currentUserId);
-        if (!isAlreadyMember)
+        if (isAlreadyMember)
         {
-            _db.ChannelMembers.Add(new ChannelMember
+            var existingDto = MapToDto(channel, currentUserId, null);
+            return Ok(existingDto);
+        }
+
+        // Check if user was previously kicked from this channel
+        var kickRecord = await _db.ChannelKickRecords
+            .FirstOrDefaultAsync(k => k.ChannelId == id && k.UserId == currentUserId);
+
+        if (kickRecord != null)
+        {
+            // User was previously kicked: create join request for the channel owner instead of joining directly
+            var existingRequest = await _db.ChannelJoinRequests
+                .FirstOrDefaultAsync(r => r.ChannelId == id && r.UserId == currentUserId && r.Status == "Pending");
+
+            if (existingRequest != null)
             {
-                ChannelId = channel.Id,
+                return Ok(new { isPending = true, message = "A join request is already pending approval from the channel leader." });
+            }
+
+            var user = await _db.Users.FindAsync(currentUserId);
+            var joinRequest = new ChannelJoinRequest
+            {
+                ChannelId = id,
                 UserId = currentUserId,
-                JoinedAt = DateTime.UtcNow
-            });
+                RequestedAt = DateTime.UtcNow,
+                Status = "Pending",
+                WasPreviouslyKicked = true
+            };
+            _db.ChannelJoinRequests.Add(joinRequest);
             await _db.SaveChangesAsync();
 
-            // Reload members
-            await _db.Entry(channel).Collection(c => c.Members).Query().Include(m => m.User).LoadAsync();
-
-            var joiningMember = channel.Members.FirstOrDefault(m => m.UserId == currentUserId);
-            if (joiningMember?.User != null)
+            var joinRequestDto = new ChannelJoinRequestDto
             {
-                var userDto = new UserDto
-                {
-                    Id = joiningMember.User.Id,
-                    Username = joiningMember.User.Username,
-                    Email = joiningMember.User.Email,
-                    AvatarUrl = joiningMember.User.AvatarUrl,
-                    CreatedAt = joiningMember.User.CreatedAt,
-                    IsOnline = _presenceTracker.IsUserOnline(joiningMember.User.Username)
-                };
+                Id = joinRequest.Id,
+                ChannelId = channel.Id,
+                ChannelName = channel.Name,
+                UserId = currentUserId,
+                Username = user?.Username ?? "Unknown",
+                AvatarUrl = user?.AvatarUrl,
+                RequestedAt = joinRequest.RequestedAt,
+                Status = joinRequest.Status,
+                WasPreviouslyKicked = true
+            };
 
-                if (!channel.IsPrivate)
-                {
-                    await _hubContext.Clients.All.SendAsync("UserJoinedChannel", new { channelId = id, user = userDto });
-                }
-                else
-                {
-                    await _hubContext.Clients.Group($"channel-{id}").SendAsync("UserJoinedChannel", new { channelId = id, user = userDto });
-                }
+            // Notify channel leader (owner) via SignalR
+            if (channel.OwnerId.HasValue)
+            {
+                await _hubContext.Clients.Group($"user-{channel.OwnerId.Value}").SendAsync("JoinRequestReceived", joinRequestDto);
+            }
+
+            return Ok(new { isPending = true, message = "Join request sent to the channel leader for approval." });
+        }
+
+        _db.ChannelMembers.Add(new ChannelMember
+        {
+            ChannelId = channel.Id,
+            UserId = currentUserId,
+            JoinedAt = DateTime.UtcNow
+        });
+        await _db.SaveChangesAsync();
+
+        // Reload members
+        await _db.Entry(channel).Collection(c => c.Members).Query().Include(m => m.User).LoadAsync();
+
+        var joiningMember = channel.Members.FirstOrDefault(m => m.UserId == currentUserId);
+        if (joiningMember?.User != null)
+        {
+            var userDto = new UserDto
+            {
+                Id = joiningMember.User.Id,
+                Username = joiningMember.User.Username,
+                Email = joiningMember.User.Email,
+                AvatarUrl = joiningMember.User.AvatarUrl,
+                CreatedAt = joiningMember.User.CreatedAt,
+                IsOnline = _presenceTracker.IsUserOnline(joiningMember.User.Username)
+            };
+
+            if (!channel.IsPrivate)
+            {
+                await _hubContext.Clients.All.SendAsync("UserJoinedChannel", new { channelId = id, user = userDto });
+            }
+            else
+            {
+                await _hubContext.Clients.Group($"channel-{id}").SendAsync("UserJoinedChannel", new { channelId = id, user = userDto });
             }
         }
 
@@ -340,6 +481,257 @@ public class ChannelsController : ControllerBase
         }
 
         return Ok(new { message = "Left channel successfully." });
+    }
+
+    [HttpDelete("{id}/members/{userId}")]
+    public async Task<IActionResult> KickMember(int id, int userId)
+    {
+        var currentUserId = GetCurrentUserId();
+
+        var channel = await _db.Channels
+            .Include(c => c.Members)
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (channel == null)
+            return NotFound(new { message = "Channel not found." });
+
+        if (channel.IsDirectMessage)
+            return BadRequest(new { message = "Cannot remove members from direct messages." });
+
+        if (channel.IsProtected)
+            return BadRequest(new { message = "Cannot remove members from default protected channels." });
+
+        // Verify caller is channel creator/owner OR workspace owner
+        bool isChannelOwner = channel.OwnerId.HasValue && channel.OwnerId.Value == currentUserId;
+        bool isWorkspaceOwner = false;
+        if (channel.WorkspaceId.HasValue)
+        {
+            isWorkspaceOwner = await _db.Workspaces.AnyAsync(w => w.Id == channel.WorkspaceId.Value && w.OwnerId == currentUserId);
+        }
+
+        if (!isChannelOwner && !isWorkspaceOwner)
+        {
+            return StatusCode(403, new { message = "Only the channel creator or workspace owner can remove members from this channel." });
+        }
+
+        if (userId == currentUserId)
+        {
+            return BadRequest(new { message = "Channel creator cannot kick themselves. Delete the channel instead." });
+        }
+
+        var member = channel.Members.FirstOrDefault(m => m.UserId == userId);
+        if (member == null)
+        {
+            return NotFound(new { message = "User is not a member of this channel." });
+        }
+
+        _db.ChannelMembers.Remove(member);
+
+        // Record the kick so the user cannot directly re-join without approval
+        var existingKick = await _db.ChannelKickRecords
+            .FirstOrDefaultAsync(k => k.ChannelId == id && k.UserId == userId);
+        if (existingKick == null)
+        {
+            _db.ChannelKickRecords.Add(new ChannelKickRecord
+            {
+                ChannelId = id,
+                UserId = userId,
+                KickedById = currentUserId,
+                KickedAt = DateTime.UtcNow
+            });
+        }
+        else
+        {
+            existingKick.KickedById = currentUserId;
+            existingKick.KickedAt = DateTime.UtcNow;
+        }
+
+        await _db.SaveChangesAsync();
+
+        // 1. Notify members inside the channel
+        await _hubContext.Clients.Group($"channel-{id}").SendAsync("UserLeftChannel", new { channelId = id, userId = userId });
+
+        // 2. Notify the kicked user directly to evict them from the channel view
+        await _hubContext.Clients.Group($"user-{userId}").SendAsync("ChannelKicked", new { channelId = id, channelName = channel.Name });
+
+        return Ok(new { message = $"User was removed from #{channel.Name}." });
+    }
+
+    [HttpGet("{id}/join-requests")]
+    public async Task<ActionResult<List<ChannelJoinRequestDto>>> GetJoinRequests(int id)
+    {
+        var currentUserId = GetCurrentUserId();
+        var channel = await _db.Channels.FirstOrDefaultAsync(c => c.Id == id);
+        if (channel == null)
+            return NotFound(new { message = "Channel not found." });
+
+        bool isOwner = channel.OwnerId.HasValue && channel.OwnerId.Value == currentUserId;
+        bool isWorkspaceOwner = false;
+        if (channel.WorkspaceId.HasValue)
+        {
+            isWorkspaceOwner = await _db.Workspaces.AnyAsync(w => w.Id == channel.WorkspaceId.Value && w.OwnerId == currentUserId);
+        }
+
+        if (!isOwner && !isWorkspaceOwner)
+        {
+            return StatusCode(403, new { message = "Only the channel creator or workspace owner can view join requests." });
+        }
+
+        var requests = await _db.ChannelJoinRequests
+            .Where(r => r.ChannelId == id && r.Status == "Pending")
+            .Include(r => r.User)
+            .OrderByDescending(r => r.RequestedAt)
+            .Select(r => new ChannelJoinRequestDto
+            {
+                Id = r.Id,
+                ChannelId = r.ChannelId,
+                ChannelName = channel.Name,
+                UserId = r.UserId,
+                Username = r.User.Username,
+                AvatarUrl = r.User.AvatarUrl,
+                RequestedAt = r.RequestedAt,
+                Status = r.Status,
+                WasPreviouslyKicked = r.WasPreviouslyKicked
+            })
+            .ToListAsync();
+
+        return Ok(requests);
+    }
+
+    [HttpPost("{id}/join-requests/{requestId}/approve")]
+    public async Task<IActionResult> ApproveJoinRequest(int id, int requestId)
+    {
+        var currentUserId = GetCurrentUserId();
+        var channel = await _db.Channels
+            .Include(c => c.Owner)
+            .Include(c => c.Members).ThenInclude(m => m.User)
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (channel == null)
+            return NotFound(new { message = "Channel not found." });
+
+        bool isOwner = channel.OwnerId.HasValue && channel.OwnerId.Value == currentUserId;
+        bool isWorkspaceOwner = false;
+        if (channel.WorkspaceId.HasValue)
+        {
+            isWorkspaceOwner = await _db.Workspaces.AnyAsync(w => w.Id == channel.WorkspaceId.Value && w.OwnerId == currentUserId);
+        }
+
+        if (!isOwner && !isWorkspaceOwner)
+        {
+            return StatusCode(403, new { message = "Only the channel creator or workspace owner can approve join requests." });
+        }
+
+        var request = await _db.ChannelJoinRequests
+            .Include(r => r.User)
+            .FirstOrDefaultAsync(r => r.Id == requestId && r.ChannelId == id && r.Status == "Pending");
+
+        if (request == null)
+            return NotFound(new { message = "Join request not found or already processed." });
+
+        request.Status = "Approved";
+        request.DecidedAt = DateTime.UtcNow;
+        request.DecidedById = currentUserId;
+
+        // Remove kick record so the user can freely stay and participate
+        var kickRecord = await _db.ChannelKickRecords
+            .FirstOrDefaultAsync(k => k.ChannelId == id && k.UserId == request.UserId);
+        if (kickRecord != null)
+        {
+            _db.ChannelKickRecords.Remove(kickRecord);
+        }
+
+        // Add member if not already present
+        if (!channel.Members.Any(m => m.UserId == request.UserId))
+        {
+            _db.ChannelMembers.Add(new ChannelMember
+            {
+                ChannelId = id,
+                UserId = request.UserId,
+                JoinedAt = DateTime.UtcNow
+            });
+        }
+
+        await _db.SaveChangesAsync();
+
+        var user = request.User;
+        var userDto = new UserDto
+        {
+            Id = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            AvatarUrl = user.AvatarUrl,
+            CreatedAt = user.CreatedAt,
+            IsOnline = _presenceTracker.IsUserOnline(user.Username)
+        };
+
+        // Reload channel to get latest members
+        await _db.Entry(channel).Collection(c => c.Members).Query().Include(m => m.User).LoadAsync();
+        var channelDto = MapToDto(channel, request.UserId, null);
+
+        // Broadcast to channel members
+        if (!channel.IsPrivate)
+        {
+            await _hubContext.Clients.All.SendAsync("UserJoinedChannel", new { channelId = id, user = userDto });
+        }
+        else
+        {
+            await _hubContext.Clients.Group($"channel-{id}").SendAsync("UserJoinedChannel", new { channelId = id, user = userDto });
+        }
+
+        // Send approval to the user directly
+        await _hubContext.Clients.Group($"user-{request.UserId}").SendAsync("JoinRequestApproved", new
+        {
+            requestId = request.Id,
+            channelId = id,
+            channel = channelDto
+        });
+
+        return Ok(new { message = $"Approved @{user.Username} to join #{channel.Name}." });
+    }
+
+    [HttpPost("{id}/join-requests/{requestId}/reject")]
+    public async Task<IActionResult> RejectJoinRequest(int id, int requestId)
+    {
+        var currentUserId = GetCurrentUserId();
+        var channel = await _db.Channels.FirstOrDefaultAsync(c => c.Id == id);
+        if (channel == null)
+            return NotFound(new { message = "Channel not found." });
+
+        bool isOwner = channel.OwnerId.HasValue && channel.OwnerId.Value == currentUserId;
+        bool isWorkspaceOwner = false;
+        if (channel.WorkspaceId.HasValue)
+        {
+            isWorkspaceOwner = await _db.Workspaces.AnyAsync(w => w.Id == channel.WorkspaceId.Value && w.OwnerId == currentUserId);
+        }
+
+        if (!isOwner && !isWorkspaceOwner)
+        {
+            return StatusCode(403, new { message = "Only the channel creator or workspace owner can decline join requests." });
+        }
+
+        var request = await _db.ChannelJoinRequests
+            .Include(r => r.User)
+            .FirstOrDefaultAsync(r => r.Id == requestId && r.ChannelId == id && r.Status == "Pending");
+
+        if (request == null)
+            return NotFound(new { message = "Join request not found or already processed." });
+
+        request.Status = "Rejected";
+        request.DecidedAt = DateTime.UtcNow;
+        request.DecidedById = currentUserId;
+
+        await _db.SaveChangesAsync();
+
+        // Notify user directly that their request was rejected
+        await _hubContext.Clients.Group($"user-{request.UserId}").SendAsync("JoinRequestRejected", new
+        {
+            requestId = request.Id,
+            channelId = id,
+            channelName = channel.Name
+        });
+
+        return Ok(new { message = $"Declined join request from @{request.User.Username}." });
     }
 
     [HttpDelete("{id}")]
@@ -500,6 +892,18 @@ public class ChannelsController : ControllerBase
         if (targetUser == null)
             return NotFound(new { message = "Target user not found." });
 
+        // Ensure users share at least one mutual workspace
+        var myWorkspaceIds = await _db.WorkspaceMembers
+            .Where(wm => wm.UserId == currentUserId)
+            .Select(wm => wm.WorkspaceId)
+            .ToListAsync();
+
+        var sharesWorkspace = await _db.WorkspaceMembers
+            .AnyAsync(wm => wm.UserId == dto.TargetUserId && myWorkspaceIds.Contains(wm.WorkspaceId));
+
+        if (!sharesWorkspace)
+            return BadRequest(new { message = "You can only direct message users who share a workspace with you." });
+
         // Check if DM channel already exists between these 2 users
         var existingDm = await _db.Channels
             .Where(c => c.IsDirectMessage
@@ -632,6 +1036,7 @@ public class ChannelsController : ControllerBase
             Id = channel.Id,
             Name = displayName,
             Description = channel.Description,
+            WorkspaceId = channel.WorkspaceId,
             IsDirectMessage = channel.IsDirectMessage,
             IsPrivate = channel.IsPrivate,
             IsProtected = channel.IsProtected,
@@ -654,6 +1059,7 @@ public class ChannelsController : ControllerBase
             {
                 Id = lastMessage.Id,
                 ChannelId = lastMessage.ChannelId,
+                WorkspaceId = channel.WorkspaceId,
                 SenderId = lastMessage.SenderId,
                 SenderUsername = lastMessage.Sender?.Username ?? "",
                 SenderAvatarUrl = lastMessage.Sender?.AvatarUrl,

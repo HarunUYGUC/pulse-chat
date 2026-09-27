@@ -8,6 +8,7 @@ export const AuthPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
   const { login, register, isLoading, error, clearError } = useAuthStore();
@@ -46,7 +47,13 @@ export const AuthPage: React.FC = () => {
           setLocalError('Password must be at least 6 characters.');
           return;
         }
-        await register({ username, email, password, avatarUrl: avatarUrl || undefined });
+        await register({
+          username,
+          email,
+          password,
+          avatarUrl: avatarUrl || undefined,
+          inviteCode: inviteCode.trim().toUpperCase() || undefined,
+        });
       }
     } catch {
       // Error handled by store
@@ -71,6 +78,7 @@ export const AuthPage: React.FC = () => {
           email: demoEmail,
           password: demoPassword,
           avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${demoUsername}&backgroundColor=5865f2`,
+          inviteCode: 'PULSE-DEMO',
         });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Demo account creation failed.';
@@ -200,18 +208,33 @@ export const AuthPage: React.FC = () => {
             </div>
 
             {!isLogin && (
-              <div className="mb-4">
-                <label className="form-label small fw-semibold text-uppercase text-secondary">
-                  Avatar Image URL (Optional)
-                </label>
-                <input
-                  type="url"
-                  className="form-control pc-input py-2"
-                  placeholder="https://example.com/avatar.png"
-                  value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
-                />
-              </div>
+              <>
+                <div className="mb-3">
+                  <label className="form-label small fw-semibold text-uppercase text-secondary">
+                    Avatar Image URL <span className="text-muted fw-normal">(Optional)</span>
+                  </label>
+                  <input
+                    type="url"
+                    className="form-control pc-input py-2"
+                    placeholder="https://example.com/avatar.png"
+                    value={avatarUrl}
+                    onChange={(e) => setAvatarUrl(e.target.value)}
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="form-label small fw-semibold text-uppercase text-secondary">
+                    Workspace Invite Code <span className="text-muted fw-normal">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control pc-input py-2 font-monospace"
+                    placeholder="e.g. PULSE-8X92"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                  />
+                </div>
+              </>
             )}
 
             <button

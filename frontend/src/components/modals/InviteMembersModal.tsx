@@ -22,11 +22,11 @@ export const InviteMembersModal: React.FC<InviteMembersModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      fetchUsers();
+      fetchUsers(channel.workspaceId);
       setSelectedUserIds([]);
       setSearchTerm('');
     }
-  }, [isOpen, fetchUsers]);
+  }, [isOpen, fetchUsers, channel.workspaceId]);
 
   if (!isOpen) return null;
 

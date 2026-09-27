@@ -15,6 +15,9 @@ public class Channel
     public int? OwnerId { get; set; }
     public User? Owner { get; set; }
 
+    public int? WorkspaceId { get; set; }
+    public Workspace? Workspace { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties

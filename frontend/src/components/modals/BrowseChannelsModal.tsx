@@ -3,6 +3,7 @@ import { Hash, Lock, Search, X, Users, Check, Shield } from 'lucide-react';
 import api from '../../services/api';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 import { BrowseChannel } from '../../types';
 
 interface BrowseChannelsModalProps {
@@ -21,11 +22,15 @@ export const BrowseChannelsModal: React.FC<BrowseChannelsModalProps> = ({
 
   const { user: currentUser } = useAuthStore();
   const { joinChannelById, leaveChannel, setActiveChannel } = useChatStore();
+  const { activeWorkspaceId } = useWorkspaceStore();
 
   const loadBrowseChannels = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get<BrowseChannel[]>('/channels/browse');
+      const url = activeWorkspaceId
+        ? `/channels/browse?workspaceId=${activeWorkspaceId}`
+        : '/channels/browse';
+      const response = await api.get<BrowseChannel[]>(url);
       setChannels(response.data);
     } catch (err) {
       console.error('Failed to load channels directory:', err);
@@ -39,7 +44,7 @@ export const BrowseChannelsModal: React.FC<BrowseChannelsModalProps> = ({
       loadBrowseChannels();
       setSearchTerm('');
     }
-  }, [isOpen]);
+  }, [isOpen, activeWorkspaceId]);
 
   if (!isOpen) return null;
 
@@ -51,8 +56,12 @@ export const BrowseChannelsModal: React.FC<BrowseChannelsModalProps> = ({
   const handleJoin = async (channelId: number) => {
     setActionLoading(channelId);
     try {
-      await joinChannelById(channelId);
-      onClose();
+      const result = await joinChannelById(channelId);
+      if (result?.isPending) {
+        await loadBrowseChannels();
+      } else {
+        onClose();
+      }
     } catch (err) {
       console.error('Failed to join channel:', err);
     } finally {
@@ -176,6 +185,24 @@ export const BrowseChannelsModal: React.FC<BrowseChannelsModalProps> = ({
                               Joined
                             </span>
                           )}
+
+                          {channel.hasPendingJoinRequest && (
+                            <span
+                              className="badge rounded-pill d-inline-flex align-items-center gap-1"
+                              style={{ backgroundColor: 'rgba(234, 179, 8, 0.2)', color: '#facc15', fontSize: '0.65rem' }}
+                            >
+                              Pending Approval
+                            </span>
+                          )}
+
+                          {channel.wasKicked && !channel.hasPendingJoinRequest && !channel.isMember && (
+                            <span
+                              className="badge rounded-pill d-inline-flex align-items-center gap-1"
+                              style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#f87171', fontSize: '0.65rem' }}
+                            >
+                              Removed by Leader
+                            </span>
+                          )}
                         </div>
 
                         {channel.description && (
@@ -215,6 +242,24 @@ export const BrowseChannelsModal: React.FC<BrowseChannelsModalProps> = ({
                               {isBusy ? 'Leaving...' : 'Leave'}
                             </button>
                           )
+                        ) : channel.hasPendingJoinRequest ? (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-secondary py-1 px-3 opacity-75"
+                            disabled
+                          >
+                            Pending Approval
+                          </button>
+                        ) : channel.wasKicked ? (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-warning text-dark py-1 px-3 fw-medium"
+                            disabled={isBusy}
+                            onClick={() => handleJoin(channel.id)}
+                            title="You were previously removed from this channel. A join request will be sent to the channel leader."
+                          >
+                            {isBusy ? 'Requesting...' : 'Request to Join'}
+                          </button>
                         ) : (
                           <button
                             type="button"

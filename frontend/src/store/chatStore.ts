@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import api from '../services/api';
-import { Channel, Message, User, ReactionNotification } from '../types';
+import { Channel, Message, User, ReactionNotification, ChannelJoinRequest } from '../types';
 import { useAuthStore } from './authStore';
+import { useWorkspaceStore } from './workspaceStore';
 import { joinChannel as signalrJoin, leaveChannel as signalrLeave } from '../services/signalr';
 
 interface ChatState {
@@ -14,15 +15,22 @@ interface ChatState {
   lastReadMessageIds: Record<number, number | null>;
   allUsers: User[];
   isLoadingMessages: boolean;
+  joinRequests: ChannelJoinRequest[];
 
   setChannels: (channels: Channel[]) => void;
   addChannel: (channel: Channel) => void;
   removeChannel: (channelId: number) => void;
   deleteChannel: (channelId: number) => Promise<void>;
   leaveChannel: (channelId: number) => Promise<void>;
-  joinChannelById: (channelId: number) => Promise<void>;
+  kickMember: (channelId: number, userId: number) => Promise<void>;
+  joinChannelById: (channelId: number) => Promise<{ isPending?: boolean; message?: string }>;
   inviteMembers: (channelId: number, userIds: number[]) => Promise<void>;
   updateChannelDescription: (channelId: number, description: string) => Promise<void>;
+  fetchJoinRequests: (channelId: number) => Promise<void>;
+  approveJoinRequest: (channelId: number, requestId: number) => Promise<void>;
+  rejectJoinRequest: (channelId: number, requestId: number) => Promise<void>;
+  addJoinRequest: (request: ChannelJoinRequest) => void;
+  removeJoinRequest: (requestId: number) => void;
   userJoinedChannel: (channelId: number, user: User) => void;
   userLeftChannel: (channelId: number, userId: number) => void;
   setActiveChannel: (channelId: number) => void;
@@ -33,9 +41,9 @@ interface ChatState {
   userWentOnline: (username: string) => void;
   userWentOffline: (username: string) => void;
   setUserTyping: (channelId: number, username: string, isTyping: boolean) => void;
-  fetchChannels: () => Promise<void>;
+  fetchChannels: (workspaceId?: number) => Promise<void>;
   fetchMessages: (channelId: number) => Promise<void>;
-  fetchUsers: () => Promise<void>;
+  fetchUsers: (workspaceId?: number) => Promise<void>;
   markChannelAsRead: (channelId: number, messageId?: number) => Promise<void>;
   resetChat: () => void;
 }
@@ -50,6 +58,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   lastReadMessageIds: {},
   allUsers: [],
   isLoadingMessages: false,
+  joinRequests: [],
 
   resetChat: () =>
     set({
@@ -62,6 +71,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       lastReadMessageIds: {},
       allUsers: [],
       isLoadingMessages: false,
+      joinRequests: [],
     }),
 
   setChannels: (channels) => set({ channels }),
@@ -110,11 +120,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
     get().removeChannel(channelId);
   },
 
+  kickMember: async (channelId: number, userId: number) => {
+    await api.delete(`/channels/${channelId}/members/${userId}`);
+    get().userLeftChannel(channelId, userId);
+  },
+
   joinChannelById: async (channelId: number) => {
-    const res = await api.post<Channel>(`/channels/${channelId}/join`);
-    get().addChannel(res.data);
-    get().setActiveChannel(res.data.id);
+    const res = await api.post<{ isPending?: boolean; message?: string } & Partial<Channel>>(
+      `/channels/${channelId}/join`
+    );
+    if (res.data?.isPending) {
+      return { isPending: true, message: res.data.message };
+    }
+    const channel = res.data as Channel;
+    get().addChannel(channel);
+    get().setActiveChannel(channel.id);
     await signalrJoin(channelId);
+    return { isPending: false };
   },
 
   inviteMembers: async (channelId: number, userIds: number[]) => {
@@ -126,6 +148,40 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const res = await api.put<Channel>(`/channels/${channelId}`, { description });
     get().addChannel(res.data);
   },
+
+  fetchJoinRequests: async (channelId: number) => {
+    try {
+      const response = await api.get<ChannelJoinRequest[]>(`/channels/${channelId}/join-requests`);
+      set({ joinRequests: response.data });
+    } catch {
+      set({ joinRequests: [] });
+    }
+  },
+
+  approveJoinRequest: async (channelId: number, requestId: number) => {
+    await api.post(`/channels/${channelId}/join-requests/${requestId}/approve`);
+    set((state) => ({
+      joinRequests: state.joinRequests.filter((r) => r.id !== requestId),
+    }));
+  },
+
+  rejectJoinRequest: async (channelId: number, requestId: number) => {
+    await api.post(`/channels/${channelId}/join-requests/${requestId}/reject`);
+    set((state) => ({
+      joinRequests: state.joinRequests.filter((r) => r.id !== requestId),
+    }));
+  },
+
+  addJoinRequest: (request: ChannelJoinRequest) =>
+    set((state) => {
+      if (state.joinRequests.some((r) => r.id === request.id)) return state;
+      return { joinRequests: [request, ...state.joinRequests] };
+    }),
+
+  removeJoinRequest: (requestId: number) =>
+    set((state) => ({
+      joinRequests: state.joinRequests.filter((r) => r.id !== requestId),
+    })),
 
   userJoinedChannel: (channelId: number, user: User) =>
     set((state) => {
@@ -174,6 +230,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Ignore localStorage write errors
     }
 
+    const prevUnread = get().unreadCounts[channelId] || 0;
+    if (prevUnread > 0) {
+      const ch = get().channels.find((c) => c.id === channelId);
+      if (ch?.workspaceId) {
+        useWorkspaceStore.getState().decrementWorkspaceUnread(ch.workspaceId, prevUnread);
+      }
+    }
+
     set((state) => ({
       activeChannelId: channelId,
       unreadCounts: {
@@ -208,9 +272,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const updatedMessages = [...channelMessages, message];
       const isCurrentActive = state.activeChannelId === msgChannelId;
 
+      const currentUserId = useAuthStore.getState().user?.id;
+      const isSentByMe = Boolean(currentUserId && message.senderId === currentUserId);
+
       const newUnread = { ...state.unreadCounts };
-      if (!isCurrentActive) {
+      if (!isCurrentActive && !isSentByMe) {
         newUnread[msgChannelId] = (newUnread[msgChannelId] || 0) + 1;
+
+        const ch = state.channels.find((c) => c.id === msgChannelId);
+        const wsId =
+          message.workspaceId ??
+          (message as unknown as { WorkspaceId?: number }).WorkspaceId ??
+          ch?.workspaceId;
+        if (wsId) {
+          useWorkspaceStore.getState().incrementWorkspaceUnread(wsId);
+        }
       }
 
       // Also update channel lastMessage
@@ -266,6 +342,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }),
 
   markChannelAsRead: async (channelId: number, messageId?: number) => {
+    const prevUnread = get().unreadCounts[channelId] || 0;
+    if (prevUnread > 0) {
+      const ch = get().channels.find((c) => c.id === channelId);
+      if (ch?.workspaceId) {
+        useWorkspaceStore.getState().decrementWorkspaceUnread(ch.workspaceId, prevUnread);
+      }
+    }
+
     set((state) => ({
       unreadCounts: {
         ...state.unreadCounts,
@@ -323,9 +407,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     }),
 
-  fetchChannels: async () => {
+  fetchChannels: async (workspaceId?: number) => {
     try {
-      const response = await api.get<Channel[]>('/channels');
+      const url = workspaceId ? `/channels?workspaceId=${workspaceId}` : '/channels';
+      const response = await api.get<Channel[]>(url);
       const channels = response.data;
       const unreadCounts: Record<number, number> = {};
       const lastReadMessageIds: Record<number, number | null> = {};
@@ -335,7 +420,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
       set({ channels, unreadCounts, lastReadMessageIds });
 
-      if (channels.length === 0) return;
+      if (workspaceId) {
+        const totalWsUnread = Object.values(unreadCounts).reduce((acc, curr) => acc + curr, 0);
+        useWorkspaceStore.getState().setWorkspaceUnread(workspaceId, totalWsUnread);
+      }
+
+      if (channels.length === 0) {
+        set({ activeChannelId: null });
+        return;
+      }
 
       const currentUserId = useAuthStore.getState().user?.id;
       const storageKey = currentUserId
@@ -385,9 +478,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  fetchUsers: async () => {
+  fetchUsers: async (workspaceId?: number) => {
     try {
-      const response = await api.get<User[]>('/auth/users');
+      const url = workspaceId ? `/auth/users?workspaceId=${workspaceId}` : '/auth/users';
+      const response = await api.get<User[]>(url);
       set({ allUsers: response.data });
     } catch (err) {
       console.error('Failed to fetch users:', err);

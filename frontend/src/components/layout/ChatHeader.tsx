@@ -137,18 +137,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         <div className="d-flex align-items-center gap-2">
           {!isDm && (
             <>
-              {isPrivate && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1 py-1 px-2 text-primary"
-                  onClick={() => setShowInviteModal(true)}
-                  title="Invite Members to Private Channel"
-                >
-                  <UserPlus size={16} />
-                  <span className="small d-none d-sm-inline">Invite</span>
-                </button>
-              )}
-
               <button
                 type="button"
                 className={`btn btn-sm ${
@@ -208,7 +196,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                         }}
                       >
                         <UserPlus size={14} />
-                        <span className="small">Invite Members</span>
+                        <span className="small">Add Members</span>
                       </button>
                     )}
 

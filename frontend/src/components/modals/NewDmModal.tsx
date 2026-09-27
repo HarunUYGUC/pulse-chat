@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MessageCircle, X, Search, Check } from 'lucide-react';
 import api from '../../services/api';
 import { useChatStore } from '../../store/chatStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 import { Channel, User } from '../../types';
 
 interface NewDmModalProps {
@@ -15,12 +16,13 @@ export const NewDmModal: React.FC<NewDmModalProps> = ({ isOpen, onClose }) => {
   const [error, setError] = useState<string | null>(null);
 
   const { allUsers, fetchUsers, addChannel, setActiveChannel, onlineUsers } = useChatStore();
+  const { activeWorkspaceId } = useWorkspaceStore();
 
   useEffect(() => {
     if (isOpen) {
-      fetchUsers();
+      fetchUsers(activeWorkspaceId ?? undefined);
     }
-  }, [isOpen, fetchUsers]);
+  }, [isOpen, fetchUsers, activeWorkspaceId]);
 
   if (!isOpen) return null;
 

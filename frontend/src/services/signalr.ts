@@ -1,12 +1,16 @@
 import * as signalR from '@microsoft/signalr';
 import { useChatStore } from '../store/chatStore';
+import { useWorkspaceStore } from '../store/workspaceStore';
 import {
   Message,
   TypingNotification,
   ReactionNotification,
   Channel,
+  Workspace,
+  WorkspaceMember,
   UserJoinedChannelNotification,
   UserLeftChannelNotification,
+  ChannelJoinRequest,
 } from '../types';
 
 let hubConnection: signalR.HubConnection | null = null;
@@ -85,14 +89,61 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
 
   hubConnection.on('UserWentOnline', (username: string) => {
     useChatStore.getState().userWentOnline(username);
+    useWorkspaceStore.getState().updateMemberPresence(username, true);
   });
 
   hubConnection.on('UserWentOffline', (username: string) => {
     useChatStore.getState().userWentOffline(username);
+    useWorkspaceStore.getState().updateMemberPresence(username, false);
   });
 
   hubConnection.on('GetOnlineUsers', (users: string[]) => {
     useChatStore.getState().setOnlineUsers(users);
+  });
+
+  // Workspace real-time event listeners
+  hubConnection.on('WorkspaceJoined', (workspace: Workspace) => {
+    useWorkspaceStore.getState().addWorkspace(workspace);
+    if (hubConnection?.state === signalR.HubConnectionState.Connected) {
+      hubConnection.invoke('JoinWorkspace', workspace.id).catch(() => {});
+    }
+  });
+
+  hubConnection.on('WorkspaceMemberJoined', (data: { workspaceId: number; member: WorkspaceMember; memberCount?: number }) => {
+    useWorkspaceStore.getState().memberJoined(data.workspaceId, data.member, data.memberCount);
+  });
+
+  hubConnection.on('WorkspaceMemberLeft', (data: { workspaceId: number; userId: number; memberCount?: number }) => {
+    useWorkspaceStore.getState().memberLeft(data.workspaceId, data.userId, data.memberCount);
+  });
+
+  hubConnection.on('InviteCodeUpdated', (data: { workspaceId: number; inviteCode: string }) => {
+    useWorkspaceStore.getState().updateInviteCode(data.workspaceId, data.inviteCode);
+  });
+
+  hubConnection.on('WorkspaceDeleted', (workspaceId: number) => {
+    useWorkspaceStore.getState().removeWorkspace(Number(workspaceId));
+  });
+
+  hubConnection.on('ChannelKicked', (data: { channelId: number; channelName: string }) => {
+    useChatStore.getState().removeChannel(Number(data.channelId));
+  });
+
+  hubConnection.on('JoinRequestReceived', (request: ChannelJoinRequest) => {
+    useChatStore.getState().addJoinRequest(request);
+  });
+
+  hubConnection.on('JoinRequestApproved', async (data: { requestId: number; channelId: number; channel: Channel }) => {
+    useChatStore.getState().removeJoinRequest(data.requestId);
+    useChatStore.getState().addChannel(data.channel);
+    useChatStore.getState().setActiveChannel(data.channel.id);
+    if (hubConnection?.state === signalR.HubConnectionState.Connected) {
+      await hubConnection.invoke('JoinChannel', data.channelId).catch(() => {});
+    }
+  });
+
+  hubConnection.on('JoinRequestRejected', (data: { requestId: number; channelId: number; channelName: string }) => {
+    useChatStore.getState().removeJoinRequest(data.requestId);
   });
 
   hubConnection.onreconnected(async () => {
@@ -101,6 +152,10 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
     if (hubConnection?.state === signalR.HubConnectionState.Connected) {
       for (const ch of channels) {
         await hubConnection.invoke('JoinChannel', ch.id).catch(() => {});
+      }
+      const activeWsId = useWorkspaceStore.getState().activeWorkspaceId;
+      if (activeWsId) {
+        await hubConnection.invoke('JoinWorkspace', activeWsId).catch(() => {});
       }
     }
   });
@@ -143,6 +198,30 @@ export const leaveChannel = async (channelId: number): Promise<void> => {
     await hubConnection.invoke('LeaveChannel', channelId);
   } catch (err) {
     console.error(`Failed to leave channel ${channelId}:`, err);
+  }
+};
+
+export const joinWorkspace = async (workspaceId: number): Promise<void> => {
+  if (!hubConnection || hubConnection.state !== signalR.HubConnectionState.Connected) {
+    return;
+  }
+
+  try {
+    await hubConnection.invoke('JoinWorkspace', workspaceId);
+  } catch (err) {
+    console.error(`Failed to join workspace ${workspaceId}:`, err);
+  }
+};
+
+export const leaveWorkspace = async (workspaceId: number): Promise<void> => {
+  if (!hubConnection || hubConnection.state !== signalR.HubConnectionState.Connected) {
+    return;
+  }
+
+  try {
+    await hubConnection.invoke('LeaveWorkspace', workspaceId);
+  } catch (err) {
+    console.error(`Failed to leave workspace ${workspaceId}:`, err);
   }
 };
 

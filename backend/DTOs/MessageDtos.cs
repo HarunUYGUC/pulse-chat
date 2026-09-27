@@ -10,6 +10,7 @@ public class MessageDto
     public string Content { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public int ChannelId { get; set; }
+    public int? WorkspaceId { get; set; }
     public int SenderId { get; set; }
     public string SenderUsername { get; set; } = string.Empty;
     public string? SenderAvatarUrl { get; set; }

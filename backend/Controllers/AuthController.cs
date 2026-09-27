@@ -65,18 +65,41 @@ public class AuthController : ControllerBase
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
 
-        // Automatically join public channels (Discord model)
-        var publicChannels = await _db.Channels.Where(c => !c.IsDirectMessage && !c.IsPrivate).ToListAsync();
-        foreach (var ch in publicChannels)
+        // If an invite code was provided during registration, validate and join workspace
+        if (!string.IsNullOrWhiteSpace(dto.InviteCode))
         {
-            _db.ChannelMembers.Add(new ChannelMember
+            var code = dto.InviteCode.Trim().ToUpperInvariant();
+            var workspace = await _db.Workspaces.FirstOrDefaultAsync(w => w.InviteCode.ToUpper() == code);
+            if (workspace == null)
             {
-                ChannelId = ch.Id,
+                return BadRequest(new { message = "Invalid invite code. Workspace not found." });
+            }
+
+            _db.WorkspaceMembers.Add(new WorkspaceMember
+            {
+                WorkspaceId = workspace.Id,
                 UserId = user.Id,
+                Role = "Member",
                 JoinedAt = DateTime.UtcNow
             });
+
+            // Automatically join public channels of THIS workspace
+            var publicChannels = await _db.Channels
+                .Where(c => c.WorkspaceId == workspace.Id && !c.IsDirectMessage && !c.IsPrivate)
+                .ToListAsync();
+
+            foreach (var ch in publicChannels)
+            {
+                _db.ChannelMembers.Add(new ChannelMember
+                {
+                    ChannelId = ch.Id,
+                    UserId = user.Id,
+                    JoinedAt = DateTime.UtcNow
+                });
+            }
+
+            await _db.SaveChangesAsync();
         }
-        await _db.SaveChangesAsync();
 
         var token = _tokenService.CreateToken(user);
 
@@ -153,13 +176,39 @@ public class AuthController : ControllerBase
 
     [Authorize]
     [HttpGet("users")]
-    public async Task<ActionResult<System.Collections.Generic.IEnumerable<UserDto>>> GetAllUsers()
+    public async Task<ActionResult<System.Collections.Generic.IEnumerable<UserDto>>> GetAllUsers([FromQuery] int? workspaceId = null)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         int.TryParse(userIdClaim, out var currentUserId);
 
+        IQueryable<int> allowedUserIdsQuery;
+
+        if (workspaceId.HasValue)
+        {
+            var isMember = await _db.WorkspaceMembers.AnyAsync(wm => wm.WorkspaceId == workspaceId.Value && wm.UserId == currentUserId);
+            if (!isMember)
+                return StatusCode(403, new { message = "You must be a member of the workspace to view its users." });
+
+            allowedUserIdsQuery = _db.WorkspaceMembers
+                .Where(wm => wm.WorkspaceId == workspaceId.Value && wm.UserId != currentUserId)
+                .Select(wm => wm.UserId);
+        }
+        else
+        {
+            var myWorkspaceIds = _db.WorkspaceMembers
+                .Where(wm => wm.UserId == currentUserId)
+                .Select(wm => wm.WorkspaceId);
+
+            allowedUserIdsQuery = _db.WorkspaceMembers
+                .Where(wm => myWorkspaceIds.Contains(wm.WorkspaceId) && wm.UserId != currentUserId)
+                .Select(wm => wm.UserId)
+                .Distinct();
+        }
+
+        var allowedUserIds = await allowedUserIdsQuery.ToListAsync();
+
         var users = await _db.Users
-            .Where(u => u.Id != currentUserId)
+            .Where(u => allowedUserIds.Contains(u.Id))
             .OrderBy(u => u.Username)
             .Select(u => new UserDto
             {

@@ -11,10 +11,14 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<User> Users => Set<User>();
+    public DbSet<Workspace> Workspaces => Set<Workspace>();
+    public DbSet<WorkspaceMember> WorkspaceMembers => Set<WorkspaceMember>();
     public DbSet<Channel> Channels => Set<Channel>();
     public DbSet<ChannelMember> ChannelMembers => Set<ChannelMember>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
+    public DbSet<ChannelKickRecord> ChannelKickRecords => Set<ChannelKickRecord>();
+    public DbSet<ChannelJoinRequest> ChannelJoinRequests => Set<ChannelJoinRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -78,11 +82,60 @@ public class AppDbContext : DbContext
             .HasForeignKey(r => r.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Workspace InviteCode unique index
+        modelBuilder.Entity<Workspace>()
+            .HasIndex(w => w.InviteCode)
+            .IsUnique();
+
+        // Workspace Owner relationship
+        modelBuilder.Entity<Workspace>()
+            .HasOne(w => w.Owner)
+            .WithMany()
+            .HasForeignKey(w => w.OwnerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // WorkspaceMember composite primary key
+        modelBuilder.Entity<WorkspaceMember>()
+            .HasKey(wm => new { wm.WorkspaceId, wm.UserId });
+
+        modelBuilder.Entity<WorkspaceMember>()
+            .HasOne(wm => wm.Workspace)
+            .WithMany(w => w.Members)
+            .HasForeignKey(wm => wm.WorkspaceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WorkspaceMember>()
+            .HasOne(wm => wm.User)
+            .WithMany(u => u.WorkspaceMemberships)
+            .HasForeignKey(wm => wm.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Channel Workspace relationship
+        modelBuilder.Entity<Channel>()
+            .HasOne(c => c.Workspace)
+            .WithMany(w => w.Channels)
+            .HasForeignKey(c => c.WorkspaceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Seed default public community workspace
+        modelBuilder.Entity<Workspace>().HasData(
+            new Workspace
+            {
+                Id = 1,
+                Name = "PulseChat Community",
+                Description = "Default public community workspace for team discussion and collaboration.",
+                InviteCode = "PULSE-DEMO",
+                OwnerId = 1,
+                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            }
+        );
+
         // Seed default public channels
         modelBuilder.Entity<Channel>().HasData(
             new Channel
             {
                 Id = 1,
+                WorkspaceId = 1,
                 Name = "general",
                 Description = "Public announcements, introductions, and team chats",
                 IsDirectMessage = false,
@@ -93,6 +146,7 @@ public class AppDbContext : DbContext
             new Channel
             {
                 Id = 2,
+                WorkspaceId = 1,
                 Name = "random",
                 Description = "Watercooler conversations, fun links, and memes",
                 IsDirectMessage = false,
@@ -103,6 +157,7 @@ public class AppDbContext : DbContext
             new Channel
             {
                 Id = 3,
+                WorkspaceId = 1,
                 Name = "dev",
                 Description = "Engineering discussions, code reviews, and architecture debates",
                 IsDirectMessage = false,

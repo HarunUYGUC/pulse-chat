@@ -3,6 +3,7 @@ import { Hash, Lock, X, Check } from 'lucide-react';
 import api from '../../services/api';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 import { Channel } from '../../types';
 
 interface CreateChannelModalProps {
@@ -20,17 +21,18 @@ export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, 
 
   const { addChannel, setActiveChannel, allUsers, fetchUsers } = useChatStore();
   const { user: currentUser } = useAuthStore();
+  const { activeWorkspaceId } = useWorkspaceStore();
 
   useEffect(() => {
     if (isOpen) {
-      fetchUsers();
+      fetchUsers(activeWorkspaceId ?? undefined);
       setName('');
       setDescription('');
       setIsPrivate(false);
       setSelectedUserIds([]);
       setError(null);
     }
-  }, [isOpen, fetchUsers]);
+  }, [isOpen, fetchUsers, activeWorkspaceId]);
 
   if (!isOpen) return null;
 
@@ -55,6 +57,7 @@ export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, 
       const response = await api.post<Channel>('/channels', {
         name: formattedName,
         description: description.trim() || undefined,
+        workspaceId: activeWorkspaceId ?? undefined,
         isPrivate,
         initialMemberIds: isPrivate ? selectedUserIds : undefined,
       });

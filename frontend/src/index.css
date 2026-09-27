@@ -67,15 +67,19 @@ body {
 }
 
 .sidebar-header {
-  height: 52px;
-  padding: 0 16px;
+  min-height: 52px;
+  height: auto;
+  padding: 10px 16px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
   border-bottom: 1px solid rgba(0, 0, 0, 0.25);
   font-weight: 700;
   color: var(--pc-text-header);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  transition: background-color 0.15s ease;
+}
+
+.sidebar-header:hover {
+  background-color: rgba(255, 255, 255, 0.03);
 }
 
 .sidebar-content {
@@ -494,4 +498,171 @@ body {
   border-color: var(--pc-primary);
   color: var(--pc-text-header);
   box-shadow: 0 0 0 0.25rem rgba(88, 101, 242, 0.25);
+}
+
+/* Workspace Sidebar Navigation Dock (Discord style) */
+.workspace-sidebar {
+  width: 72px;
+  height: 100vh;
+  background-color: var(--pc-bg-sidebar);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 8px;
+  flex-shrink: 0;
+  z-index: 20;
+  border-right: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.workspace-list-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 0;
+}
+
+.workspace-icon-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.workspace-pill-active {
+  position: absolute;
+  left: 0;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background-color: #fff;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.workspace-icon-btn {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 24px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.workspace-unread-badge {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  background-color: #ed4245;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  padding: 0 4.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2.5px solid var(--pc-bg-sidebar);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  line-height: 1;
+  animation: pulseBadgeIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes pulseBadgeIn {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.workspace-icon-btn:hover {
+  border-radius: 16px;
+  transform: translateY(-1px);
+}
+
+.workspace-icon-btn.active {
+  border-radius: 16px;
+}
+
+.workspace-icon-btn.add-btn {
+  background-color: var(--pc-bg-subnav);
+  color: var(--pc-online);
+}
+
+.workspace-icon-btn.add-btn:hover {
+  background-color: var(--pc-online);
+  color: #fff;
+}
+
+.workspace-separator {
+  width: 32px;
+  height: 2px;
+  border-radius: 1px;
+  background-color: rgba(255, 255, 255, 0.08);
+  margin: 4px 0;
+  flex-shrink: 0;
+}
+
+/* Modals */
+.pc-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.15s ease-out;
+}
+
+.pc-modal-dialog {
+  background-color: var(--pc-bg-subnav);
+  border-radius: 10px;
+  border: 1px solid var(--pc-border);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  width: 90%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: scaleUp 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.form-control-dark {
+  background-color: var(--pc-bg-input);
+  border: 1px solid var(--pc-border);
+  color: var(--pc-text-header);
+}
+
+.form-control-dark:focus {
+  background-color: var(--pc-bg-input);
+  border-color: var(--pc-primary);
+  color: #fff;
+  box-shadow: 0 0 0 0.2rem rgba(88, 101, 242, 0.25);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }

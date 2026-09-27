@@ -68,6 +68,7 @@ public class MessagesController : ControllerBase
                 Content = m.Content,
                 CreatedAt = m.CreatedAt,
                 ChannelId = m.ChannelId,
+                WorkspaceId = channel.WorkspaceId,
                 SenderId = m.SenderId,
                 SenderUsername = m.Sender.Username,
                 SenderAvatarUrl = m.Sender.AvatarUrl,

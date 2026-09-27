@@ -140,7 +140,39 @@ using (var scope = app.Services.CreateScope())
     }
     catch { }
 
-    // Backfill all users into all public channels (Discord model)
+    // Ensure ChannelKickRecords and ChannelJoinRequests tables exist
+    db.Database.ExecuteSqlRaw(@"
+        CREATE TABLE IF NOT EXISTS ""ChannelKickRecords"" (
+            ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_ChannelKickRecords"" PRIMARY KEY AUTOINCREMENT,
+            ""ChannelId"" INTEGER NOT NULL,
+            ""UserId"" INTEGER NOT NULL,
+            ""KickedById"" INTEGER NOT NULL,
+            ""KickedAt"" TEXT NOT NULL,
+            CONSTRAINT ""FK_ChannelKickRecords_Channels_ChannelId"" FOREIGN KEY (""ChannelId"") REFERENCES ""Channels"" (""Id"") ON DELETE CASCADE,
+            CONSTRAINT ""FK_ChannelKickRecords_Users_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE,
+            CONSTRAINT ""FK_ChannelKickRecords_Users_KickedById"" FOREIGN KEY (""KickedById"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_ChannelKickRecords_ChannelId"" ON ""ChannelKickRecords"" (""ChannelId"");
+        CREATE INDEX IF NOT EXISTS ""IX_ChannelKickRecords_UserId"" ON ""ChannelKickRecords"" (""UserId"");
+
+        CREATE TABLE IF NOT EXISTS ""ChannelJoinRequests"" (
+            ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_ChannelJoinRequests"" PRIMARY KEY AUTOINCREMENT,
+            ""ChannelId"" INTEGER NOT NULL,
+            ""UserId"" INTEGER NOT NULL,
+            ""RequestedAt"" TEXT NOT NULL,
+            ""Status"" TEXT NOT NULL,
+            ""WasPreviouslyKicked"" INTEGER NOT NULL DEFAULT 0,
+            ""DecidedAt"" TEXT NULL,
+            ""DecidedById"" INTEGER NULL,
+            CONSTRAINT ""FK_ChannelJoinRequests_Channels_ChannelId"" FOREIGN KEY (""ChannelId"") REFERENCES ""Channels"" (""Id"") ON DELETE CASCADE,
+            CONSTRAINT ""FK_ChannelJoinRequests_Users_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE,
+            CONSTRAINT ""FK_ChannelJoinRequests_Users_DecidedById"" FOREIGN KEY (""DecidedById"") REFERENCES ""Users"" (""Id"") ON DELETE RESTRICT
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_ChannelJoinRequests_ChannelId"" ON ""ChannelJoinRequests"" (""ChannelId"");
+        CREATE INDEX IF NOT EXISTS ""IX_ChannelJoinRequests_UserId"" ON ""ChannelJoinRequests"" (""UserId"");
+    ");
+
+    // Backfill all users into all public channels (Discord model, excluding kicked users)
     try
     {
         db.Database.ExecuteSqlRaw(@"
@@ -152,6 +184,77 @@ using (var scope = app.Services.CreateScope())
             AND NOT EXISTS (
                 SELECT 1 FROM ""ChannelMembers"" cm
                 WHERE cm.""ChannelId"" = c.""Id"" AND cm.""UserId"" = u.""Id""
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM ""ChannelKickRecords"" ckr
+                WHERE ckr.""ChannelId"" = c.""Id"" AND ckr.""UserId"" = u.""Id""
+            );
+        ");
+    }
+    catch { }
+
+    // Ensure Workspaces table exists
+    db.Database.ExecuteSqlRaw(@"
+        CREATE TABLE IF NOT EXISTS ""Workspaces"" (
+            ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_Workspaces"" PRIMARY KEY AUTOINCREMENT,
+            ""Name"" TEXT NOT NULL,
+            ""Description"" TEXT NULL,
+            ""InviteCode"" TEXT NOT NULL,
+            ""OwnerId"" INTEGER NOT NULL,
+            ""CreatedAt"" TEXT NOT NULL,
+            CONSTRAINT ""FK_Workspaces_Users_OwnerId"" FOREIGN KEY (""OwnerId"") REFERENCES ""Users"" (""Id"") ON DELETE RESTRICT
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Workspaces_InviteCode"" ON ""Workspaces"" (""InviteCode"");
+    ");
+
+    // Ensure WorkspaceMembers table exists
+    db.Database.ExecuteSqlRaw(@"
+        CREATE TABLE IF NOT EXISTS ""WorkspaceMembers"" (
+            ""WorkspaceId"" INTEGER NOT NULL,
+            ""UserId"" INTEGER NOT NULL,
+            ""Role"" TEXT NOT NULL,
+            ""JoinedAt"" TEXT NOT NULL,
+            CONSTRAINT ""PK_WorkspaceMembers"" PRIMARY KEY (""WorkspaceId"", ""UserId""),
+            CONSTRAINT ""FK_WorkspaceMembers_Workspaces_WorkspaceId"" FOREIGN KEY (""WorkspaceId"") REFERENCES ""Workspaces"" (""Id"") ON DELETE CASCADE,
+            CONSTRAINT ""FK_WorkspaceMembers_Users_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_WorkspaceMembers_UserId"" ON ""WorkspaceMembers"" (""UserId"");
+    ");
+
+    // Ensure WorkspaceId exists on Channels table
+    EnsureColumnExists(db, "Channels", "WorkspaceId", "INTEGER NULL");
+
+    // Ensure default workspace exists
+    try
+    {
+        db.Database.ExecuteSqlRaw(@"
+            INSERT OR IGNORE INTO ""Workspaces"" (""Id"", ""Name"", ""Description"", ""InviteCode"", ""OwnerId"", ""CreatedAt"")
+            VALUES (1, 'PulseChat Community', 'Default public community workspace for team discussion and collaboration.', 'PULSE-DEMO', 1, datetime('now'));
+        ");
+    }
+    catch { }
+
+    // Backfill legacy channels to Workspace 1 if WorkspaceId is NULL
+    try
+    {
+        db.Database.ExecuteSqlRaw(@"
+            UPDATE ""Channels""
+            SET ""WorkspaceId"" = 1
+            WHERE ""WorkspaceId"" IS NULL AND ""IsDirectMessage"" = 0;
+        ");
+    }
+    catch { }
+
+    // Backfill existing users into Workspace 1
+    try
+    {
+        db.Database.ExecuteSqlRaw(@"
+            INSERT OR IGNORE INTO ""WorkspaceMembers"" (""WorkspaceId"", ""UserId"", ""Role"", ""JoinedAt"")
+            SELECT 1, u.""Id"", CASE WHEN u.""Id"" = 1 THEN 'Owner' ELSE 'Member' END, datetime('now')
+            FROM ""Users"" u
+            WHERE NOT EXISTS (
+                SELECT 1 FROM ""WorkspaceMembers"" wm
+                WHERE wm.""WorkspaceId"" = 1 AND wm.""UserId"" = u.""Id""
             );
         ");
     }

@@ -13,6 +13,7 @@ public class User
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
+    public ICollection<WorkspaceMember> WorkspaceMemberships { get; set; } = new List<WorkspaceMember>();
     public ICollection<ChannelMember> ChannelMemberships { get; set; } = new List<ChannelMember>();
     public ICollection<Message> Messages { get; set; } = new List<Message>();
 }

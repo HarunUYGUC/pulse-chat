@@ -18,6 +18,7 @@ public class RegisterDto
     public string Password { get; set; } = string.Empty;
 
     public string? AvatarUrl { get; set; }
+    public string? InviteCode { get; set; }
 }
 
 public class LoginDto

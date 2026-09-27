@@ -41,14 +41,31 @@ public class ChatHub : Hub
             await Clients.Caller.SendAsync("GetOnlineUsers", currentOnline);
         }
 
-        // Automatically subscribe user's connection to all public channels and personal DMs
-        // This ensures unread badges light up across channels in real time!
+        // Automatically subscribe user's connection to their workspaces, public channels, and personal DMs
+        // This ensures unread badges and workspace events light up in real time!
         if (int.TryParse(userIdClaim, out var userId))
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, $"user-{userId}");
 
+            var userWorkspaces = await _db.WorkspaceMembers
+                .Where(wm => wm.UserId == userId)
+                .Select(wm => wm.WorkspaceId)
+                .ToListAsync();
+
+            foreach (var wsId in userWorkspaces)
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, $"workspace-{wsId}");
+            }
+
+            var kickedChannelIds = await _db.ChannelKickRecords
+                .Where(k => k.UserId == userId)
+                .Select(k => k.ChannelId)
+                .ToListAsync();
+
             var userChannels = await _db.Channels
-                .Where(c => (!c.IsDirectMessage && !c.IsPrivate) || c.Members.Any(m => m.UserId == userId))
+                .Where(c => (c.Members.Any(m => m.UserId == userId) ||
+                           (!c.IsDirectMessage && !c.IsPrivate && c.WorkspaceId.HasValue && userWorkspaces.Contains(c.WorkspaceId.Value)))
+                           && !kickedChannelIds.Contains(c.Id))
                 .Select(c => c.Id)
                 .ToListAsync();
 
@@ -84,6 +101,16 @@ public class ChatHub : Hub
     public async Task LeaveChannel(int channelId)
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"channel-{channelId}");
+    }
+
+    public async Task JoinWorkspace(int workspaceId)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"workspace-{workspaceId}");
+    }
+
+    public async Task LeaveWorkspace(int workspaceId)
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"workspace-{workspaceId}");
     }
 
     public async Task SendMessage(SendMessageDto messageDto)
@@ -128,6 +155,7 @@ public class ChatHub : Hub
         {
             Id = message.Id,
             ChannelId = message.ChannelId,
+            WorkspaceId = channel.WorkspaceId,
             SenderId = sender.Id,
             SenderUsername = sender.Username,
             SenderAvatarUrl = sender.AvatarUrl,

@@ -13,6 +13,8 @@ export interface Message {
   createdAt: string;
   channelId: number;
   ChannelId?: number;
+  workspaceId?: number;
+  WorkspaceId?: number;
   senderId: number;
   senderUsername: string;
   senderAvatarUrl?: string;
@@ -23,6 +25,7 @@ export interface Channel {
   id: number;
   name: string;
   description?: string;
+  workspaceId?: number;
   isDirectMessage: boolean;
   IsDirectMessage?: boolean;
   isPrivate?: boolean;
@@ -41,13 +44,60 @@ export interface BrowseChannel {
   id: number;
   name: string;
   description?: string;
+  workspaceId?: number;
   isPrivate: boolean;
   isProtected: boolean;
   memberCount: number;
   isMember: boolean;
+  wasKicked?: boolean;
+  hasPendingJoinRequest?: boolean;
   ownerId?: number;
   ownerUsername?: string;
   createdAt: string;
+}
+
+export interface ChannelJoinRequest {
+  id: number;
+  channelId: number;
+  channelName: string;
+  userId: number;
+  username: string;
+  avatarUrl?: string;
+  requestedAt: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  wasPreviouslyKicked: boolean;
+}
+
+export interface Workspace {
+  id: number;
+  name: string;
+  description?: string;
+  inviteCode: string;
+  ownerId: number;
+  ownerUsername?: string;
+  role: string; // "Owner" | "Admin" | "Member"
+  memberCount: number;
+  unreadCount?: number;
+  createdAt: string;
+}
+
+export interface WorkspaceMember {
+  id: number;
+  username: string;
+  email: string;
+  avatarUrl?: string;
+  role: string;
+  joinedAt: string;
+  isOnline: boolean;
+}
+
+export interface CreateWorkspaceData {
+  name: string;
+  description?: string;
+}
+
+export interface JoinWorkspaceData {
+  inviteCode: string;
 }
 
 export interface AuthResponse {
@@ -60,6 +110,7 @@ export interface RegisterData {
   email: string;
   password: string;
   avatarUrl?: string;
+  inviteCode?: string;
 }
 
 export interface LoginData {

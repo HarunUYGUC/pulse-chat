@@ -7,6 +7,7 @@ namespace PulseChat.Api.DTOs;
 public class ChannelDto
 {
     public int Id { get; set; }
+    public int? WorkspaceId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public bool IsDirectMessage { get; set; }
@@ -24,6 +25,8 @@ public class ChannelDto
 
 public class CreateChannelDto
 {
+    public int? WorkspaceId { get; set; }
+
     [Required]
     [MinLength(2), MaxLength(50)]
     public string Name { get; set; } = string.Empty;
@@ -39,6 +42,7 @@ public class CreateChannelDto
 public class BrowseChannelDto
 {
     public int Id { get; set; }
+    public int? WorkspaceId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public bool IsPrivate { get; set; }
@@ -47,7 +51,22 @@ public class BrowseChannelDto
     public bool IsMember { get; set; }
     public int? OwnerId { get; set; }
     public string? OwnerUsername { get; set; }
+    public bool WasKicked { get; set; }
+    public bool HasPendingJoinRequest { get; set; }
     public DateTime CreatedAt { get; set; }
+}
+
+public class ChannelJoinRequestDto
+{
+    public int Id { get; set; }
+    public int ChannelId { get; set; }
+    public string ChannelName { get; set; } = string.Empty;
+    public int UserId { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string? AvatarUrl { get; set; }
+    public DateTime RequestedAt { get; set; }
+    public string Status { get; set; } = "Pending";
+    public bool WasPreviouslyKicked { get; set; }
 }
 
 public class CreateDmDto
