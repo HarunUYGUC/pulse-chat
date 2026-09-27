@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import api from '../services/api';
-import { Channel, Message, User, ReactionNotification, ChannelJoinRequest } from '../types';
+import { Channel, Message, User, ReactionNotification, ChannelJoinRequest, WorkspaceMember } from '../types';
 import { useAuthStore } from './authStore';
 import { useWorkspaceStore } from './workspaceStore';
 import { joinChannel as signalrJoin, leaveChannel as signalrLeave } from '../services/signalr';
@@ -32,6 +32,7 @@ interface ChatState {
   addJoinRequest: (request: ChannelJoinRequest) => void;
   removeJoinRequest: (requestId: number) => void;
   userJoinedChannel: (channelId: number, user: User) => void;
+  workspaceMemberJoined: (workspaceId: number, member: WorkspaceMember) => void;
   userLeftChannel: (channelId: number, userId: number) => void;
   setActiveChannel: (channelId: number) => void;
   setMessages: (channelId: number, messages: Message[]) => void;
@@ -198,6 +199,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
       return { channels: updatedChannels };
     }),
+
+  workspaceMemberJoined: (workspaceId: number, member: WorkspaceMember) => {
+    const user: User = {
+      id: member.id,
+      username: member.username,
+      email: member.email,
+      avatarUrl: member.avatarUrl,
+      createdAt: member.joinedAt,
+      isOnline: member.isOnline,
+    };
+    if (member.isOnline) {
+      get().userWentOnline(member.username);
+    }
+    set((state) => {
+      const updatedChannels = state.channels.map((c) => {
+        if (Number(c.workspaceId) !== Number(workspaceId)) return c;
+        if (c.isPrivate || c.isDirectMessage || c.IsDirectMessage) return c;
+        const currentMembers = c.members || [];
+        if (currentMembers.some((m) => Number(m.id) === Number(user.id))) return c;
+        return {
+          ...c,
+          members: [...currentMembers, user],
+        };
+      });
+      return { channels: updatedChannels };
+    });
+  },
 
   userLeftChannel: (channelId: number, userId: number) => {
     const currentUserId = useAuthStore.getState().user?.id;

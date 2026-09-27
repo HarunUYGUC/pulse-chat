@@ -306,6 +306,26 @@ public class WorkspacesController : ControllerBase
             memberCount = actualMemberCount
         });
 
+        // Broadcast UserJoinedChannel for all public channels they were automatically added to
+        var userDto = new UserDto
+        {
+            Id = joiningUser.Id,
+            Username = joiningUser.Username,
+            Email = joiningUser.Email,
+            AvatarUrl = joiningUser.AvatarUrl,
+            CreatedAt = joiningUser.CreatedAt,
+            IsOnline = _presenceTracker.IsUserOnline(joiningUser.Username)
+        };
+
+        foreach (var ch in publicChannels)
+        {
+            await _hubContext.Clients.Group($"channel-{ch.Id}").SendAsync("UserJoinedChannel", new
+            {
+                channelId = ch.Id,
+                user = userDto
+            });
+        }
+
         return Ok(workspaceDto);
     }
 

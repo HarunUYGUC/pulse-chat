@@ -106,6 +106,16 @@ public class ChatHub : Hub
     public async Task JoinWorkspace(int workspaceId)
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, $"workspace-{workspaceId}");
+
+        var publicChannels = await _db.Channels
+            .Where(c => c.WorkspaceId == workspaceId && !c.IsDirectMessage && !c.IsPrivate)
+            .Select(c => c.Id)
+            .ToListAsync();
+
+        foreach (var chId in publicChannels)
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"channel-{chId}");
+        }
     }
 
     public async Task LeaveWorkspace(int workspaceId)

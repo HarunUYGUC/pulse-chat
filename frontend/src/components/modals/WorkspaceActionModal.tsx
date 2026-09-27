@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Plus, LogIn, Sparkles, Key } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 
@@ -19,6 +19,13 @@ export const WorkspaceActionModal: React.FC<WorkspaceActionModalProps> = ({
   const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(defaultTab);
+      setError(null);
+    }
+  }, [isOpen, defaultTab]);
 
   const { createWorkspace, joinWorkspace } = useWorkspaceStore();
 

@@ -4,9 +4,11 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using PulseChat.Api.Data;
 using PulseChat.Api.DTOs;
+using PulseChat.Api.Hubs;
 using PulseChat.Api.Models;
 using PulseChat.Api.Services;
 
@@ -19,12 +21,18 @@ public class AuthController : ControllerBase
     private readonly AppDbContext _db;
     private readonly ITokenService _tokenService;
     private readonly PresenceTracker _presenceTracker;
+    private readonly IHubContext<ChatHub> _hubContext;
 
-    public AuthController(AppDbContext db, ITokenService tokenService, PresenceTracker presenceTracker)
+    public AuthController(
+        AppDbContext db,
+        ITokenService tokenService,
+        PresenceTracker presenceTracker,
+        IHubContext<ChatHub> hubContext)
     {
         _db = db;
         _tokenService = tokenService;
         _presenceTracker = presenceTracker;
+        _hubContext = hubContext;
     }
 
     [HttpPost("register")]
@@ -99,6 +107,44 @@ public class AuthController : ControllerBase
             }
 
             await _db.SaveChangesAsync();
+
+            var actualMemberCount = await _db.WorkspaceMembers.CountAsync(wm => wm.WorkspaceId == workspace.Id);
+            var memberDto = new WorkspaceMemberDto
+            {
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                AvatarUrl = user.AvatarUrl,
+                Role = "Member",
+                JoinedAt = DateTime.UtcNow,
+                IsOnline = true
+            };
+
+            await _hubContext.Clients.Group($"workspace-{workspace.Id}").SendAsync("WorkspaceMemberJoined", new
+            {
+                workspaceId = workspace.Id,
+                member = memberDto,
+                memberCount = actualMemberCount
+            });
+
+            var userDto = new UserDto
+            {
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                AvatarUrl = user.AvatarUrl,
+                CreatedAt = user.CreatedAt,
+                IsOnline = true
+            };
+
+            foreach (var ch in publicChannels)
+            {
+                await _hubContext.Clients.Group($"channel-{ch.Id}").SendAsync("UserJoinedChannel", new
+                {
+                    channelId = ch.Id,
+                    user = userDto
+                });
+            }
         }
 
         var token = _tokenService.CreateToken(user);

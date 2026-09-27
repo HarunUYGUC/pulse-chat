@@ -111,6 +111,7 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
 
   hubConnection.on('WorkspaceMemberJoined', (data: { workspaceId: number; member: WorkspaceMember; memberCount?: number }) => {
     useWorkspaceStore.getState().memberJoined(data.workspaceId, data.member, data.memberCount);
+    useChatStore.getState().workspaceMemberJoined(data.workspaceId, data.member);
   });
 
   hubConnection.on('WorkspaceMemberLeft', (data: { workspaceId: number; userId: number; memberCount?: number }) => {
