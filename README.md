@@ -1,42 +1,47 @@
 # PulseChat — Real-Time Chat & Collaboration Platform
 
-PulseChat is a production-grade, full-stack real-time messaging application (Slack / Discord inspired) built with **React 18/19 (TypeScript) + Bootstrap 5** on the frontend and **ASP.NET Core 9 Web API + SignalR** on the backend.
+PulseChat is a production-grade, full-stack real-time messaging and collaboration platform (Slack / Discord inspired) built with **React 18/19 (TypeScript) + Bootstrap 5** on the frontend, **ASP.NET Core 9 Web API + SignalR** on the backend, and a cross-platform mobile client built with **React Native + Expo**.
 
 ---
 
 ## 🌟 Key Features
 
-- **Real-Time Messaging**: Instant bi-directional messaging across channels and direct messages powered by ASP.NET Core SignalR.
-- **Channels & Direct Messages**:
-  - Public Channels (e.g. `#general`, `#random`, `#dev`) with instant broadcast.
-  - 1-on-1 Direct Messages with dedicated conversations and auto-naming.
-  - Channel creation and membership synchronization.
-- **Live User Presence**:
-  - Real-time online/offline status tracking with multi-tab connection resilience (`PresenceTracker`).
-  - Visual status dots (green for online, grey for offline) across channel member lists and direct message dialogs.
-- **Typing Indicators**: Real-time "Alice is typing..." indicators with debounced broadcasts.
-- **Emoji Reactions**: Quick emoji reactions on messages (👍, ❤️, 🔥, 😂, 🚀, 🎉).
-- **Persistent Unread Tracking & Visual Divider**:
-  - Database-persisted per-user read markers (`LastReadMessageId`, `LastReadAt`).
-  - Discord/Slack-style red divider line (`─── NEW MESSAGES ───`) showing exactly where you left off.
-  - Dynamic unread count badges on inactive channels.
-- **Private Channels & Member Invitations**:
-  - Create private channels accessible only to invited members.
-  - Interactive member invitation modal with live membership broadcast.
-- **Session & Refresh Persistence**:
-  - Active channel and session state preserved across page refreshes (F5).
-- **Modern Slack/Discord UI**:
-  - Dark-tinted ergonomic layout with high contrast and smooth scrollbars.
-  - Responsive 3-column architecture (Sidebar, Chat Canvas, Collapsible Members List).
-  - Auto-scroll to latest messages.
-- **Self-Hosted Relational Storage**:
-  - Entity Framework Core with SQLite (`pulsechat.db`) — zero cloud cost ($0).
-  - Automatically migrates and seeds default channels on first launch.
-- **JWT Authentication & BCrypt**:
-  - Secure password hashing with BCrypt.
-  - JSON Web Tokens passed via HTTP Headers for REST and query strings for WebSockets/SignalR.
-  - 1-click Quick Demo logins ("Sign in as Alice", "Sign in as Bob") for instant testing.
-- **Strictly 100% English**: All UI labels, placeholders, errors, code comments, and endpoints.
+### 🏢 Multi-Workspace System (Discord / Slack Architecture)
+- **Dedicated Workspaces**: Create, join, and manage multiple isolated workspaces for different teams or communities.
+- **Workspace Navigation Dock**: Discord-inspired vertical navigation bar with workspace initials, brand colors, active indicator pills, and member tooltips.
+- **Unique Invite Codes**: Generate and share invite codes to let other users join your workspace instantly. Regenerate codes anytime for security.
+- **Workspace Management**: Workspace owners can edit descriptions or delete the workspace with safety confirmation dialogs.
+- **Member Count & Presence Sync**: Live workspace member counters and real-time membership synchronization across devices.
+
+### 🔔 Real-Time Workspace Unread Badges
+- **Capsule Notification Badges**: Distinct red notification capsules (`#ed4245`) showing unread message counts on each workspace icon in the dock.
+- **Smart Formatting**: Displays exact numbers or `99+` overflow with smooth entry animations (`pulseBadgeIn`).
+- **Discord-Style Pill Indicator**: Subtle white indicator pills on the left edge show unread activity on inactive workspaces.
+- **Zero-Lag SignalR Updates**: Workspace unread counts increment instantly as messages arrive in any channel, and decrement as channels are read.
+
+### 💬 Channels & Direct Messages
+- **Public & Private Channels**: Public channels (e.g. `#general`, `#random`, `#dev`) with instant broadcast, and private channels restricted to invited members.
+- **1-on-1 Direct Messages**: Direct conversations with dedicated user-to-user routing, auto-naming, and conversation history.
+- **Browse Channels Modal**: Explore, discover, and join open channels within the active workspace.
+- **Channel Descriptions**: Informative descriptions displayed directly in the channel header and workspace context.
+
+### 🛡️ Moderation & Join Request Approval Workflow
+- **Member Kick Action**: Channel leaders and creators can remove members from channels with instant real-time synchronization.
+- **Audit History**: System tracks kick records (`ChannelKickRecord`) to prevent unauthorized re-entry.
+- **Join Request System**: Kicked members attempting to rejoin via "Browse Channels" submit a join request (`ChannelJoinRequest`).
+- **Owner Approval UI**: Channel leaders review pending requests with a warning tag (*"You previously removed this member"*) and can approve or reject with one click.
+
+### ⚡ Live Presence & Real-Time Engagement
+- **Live User Presence**: Multi-tab connection resilience (`PresenceTracker`) tracking online/offline states with green/grey status indicators.
+- **Typing Indicators**: Real-time, debounced *"Alice is typing..."* status broadcasts.
+- **Emoji Reactions**: Interactive message reactions (👍, ❤️, 🔥, 😂, 🚀, 🎉) with live user list tooltips and counters.
+- **Persistent Unread Divider**: Per-user database-persisted read markers (`LastReadMessageId`, `LastReadAt`) with a red `─── NEW MESSAGES ───` line showing where you left off.
+
+### 🔐 Security & Persistence
+- **JWT Authentication & BCrypt**: Password hashing with BCrypt and JWT Bearer tokens passed via HTTP Authorization headers and WebSocket query strings.
+- **1-Click Quick Demo Accounts**: Instant "Sign in as Alice" and "Sign in as Bob" buttons for rapid multi-user testing.
+- **Self-Hosted Relational Storage**: Entity Framework Core 9 with SQLite (`pulsechat.db`) — zero cloud cost ($0), with automatic migration and seeding.
+- **Session & Refresh Resilience**: Active workspace, channel, and JWT token state preserved across page refreshes (F5).
 
 ---
 
@@ -44,9 +49,17 @@ PulseChat is a production-grade, full-stack real-time messaging application (Sla
 
 ### Backend
 - **Framework**: ASP.NET Core 9.0 Web API
-- **Real-Time**: Microsoft ASP.NET Core SignalR (`ChatHub`)
+- **Real-Time Hub**: Microsoft ASP.NET Core SignalR (`ChatHub`)
 - **ORM / Database**: Entity Framework Core 9 with SQLite
-- **Security**: JWT Bearer Authentication (`Microsoft.AspNetCore.Authentication.JwtBearer`), BCrypt password hashing (`BCrypt.Net-Next`)
+- **Security**: JWT Bearer Authentication (`Microsoft.AspNetCore.Authentication.JwtBearer`), BCrypt (`BCrypt.Net-Next`)
+
+### Frontend (Web)
+- **Framework**: React 18/19 with TypeScript
+- **Bundler**: Vite
+- **UI & Styling**: Bootstrap 5.3 + Lucide Icons + Custom Slack/Discord Dark Theme
+- **State Management**: Zustand (`workspaceStore`, `chatStore`, `authStore`)
+- **Real-Time Client**: `@microsoft/signalr` with auto-reconnect
+- **HTTP Client**: Axios with JWT request & response interceptors
 
 ### Mobile Client (React Native + Expo)
 - **Framework**: React Native 0.86 with Expo SDK 57 (TypeScript)
@@ -55,14 +68,6 @@ PulseChat is a production-grade, full-stack real-time messaging application (Sla
 - **Persistence**: `@react-native-async-storage/async-storage` for JWT & active session
 - **Real-Time Hub**: `@microsoft/signalr` with auto-reconnection
 - **Icons**: `lucide-react-native`
-
-### Frontend (Web)
-- **Framework**: React 18/19 with TypeScript
-- **Bundler**: Vite
-- **UI / Styling**: Bootstrap 5.3 + Lucide Icons + Custom Slack/Discord Dark Theme
-- **State Management**: Zustand
-- **Real-Time Client**: `@microsoft/signalr`
-- **HTTP Client**: Axios with JWT interceptors
 
 ---
 
@@ -73,17 +78,30 @@ pulse-chat/
 ├── backend/
 │   ├── Controllers/
 │   │   ├── AuthController.cs          # Register, Login, Current user, Users directory
-│   │   ├── ChannelsController.cs      # Channels CRUD, Direct messaging
-│   │   └── MessagesController.cs      # Message history per channel
+│   │   ├── ChannelsController.cs      # Channels CRUD, Join requests, Kick members, DMs
+│   │   ├── MessagesController.cs      # Channel message history and read receipts
+│   │   └── WorkspacesController.cs    # Workspaces CRUD, Invites, Members, Unread counts
 │   ├── Data/
 │   │   └── AppDbContext.cs            # EF Core DbContext with SQLite & seed data
-│   ├── DTOs/                          # Request & Response data transfer objects
+│   ├── DTOs/
+│   │   ├── AuthDtos.cs                # Auth requests and user profiles
+│   │   ├── ChannelDtos.cs             # Channel summaries, join requests, read markers
+│   │   ├── MessageDtos.cs             # Messages with workspace and reaction metadata
+│   │   └── WorkspaceDtos.cs           # Workspace summaries, members, unread counts
 │   ├── Hubs/
-│   │   └── ChatHub.cs                 # SignalR hub (Broadcasts, Typing, Presence)
-│   ├── Models/                        # User, Channel, ChannelMember, Message
+│   │   └── ChatHub.cs                 # SignalR hub (Broadcasts, Typing, Presence, Workspaces)
+│   ├── Models/
+│   │   ├── Channel.cs                 # Channel entity with workspace foreign key
+│   │   ├── ChannelJoinRequest.cs      # Pending join requests for moderated channels
+│   │   ├── ChannelKickRecord.cs       # Kick audit logs
+│   │   ├── ChannelMember.cs           # Channel memberships and read markers
+│   │   ├── Message.cs                 # Messages with emoji reactions
+│   │   ├── User.cs                    # User entity with credentials
+│   │   ├── Workspace.cs               # Workspace entity with invite codes
+│   │   └── WorkspaceMember.cs         # Workspace membership & role mapping
 │   ├── Services/
-│   │   ├── TokenService.cs            # JWT token generation
-│   │   └── PresenceTracker.cs         # Thread-safe connection & presence mapping
+│   │   ├── PresenceTracker.cs         # Thread-safe multi-connection presence mapping
+│   │   └── TokenService.cs            # JWT token generation
 │   ├── Program.cs                     # Startup, CORS, JWT, SignalR routing
 │   └── appsettings.json
 │
@@ -92,16 +110,31 @@ pulse-chat/
 │   │   ├── components/
 │   │   │   ├── auth/AuthPage.tsx      # Login, Register & 1-Click Demo login
 │   │   │   ├── chat/                  # MessageList, MessageItem, MessageInput, TypingIndicator
-│   │   │   ├── layout/                # AppLayout, Sidebar, ChatHeader, MembersSidebar
-│   │   │   └── modals/                # CreateChannelModal, NewDmModal
+│   │   │   ├── layout/
+│   │   │   │   ├── AppLayout.tsx      # Main layout combining sidebars and chat canvas
+│   │   │   │   ├── ChatHeader.tsx     # Channel title, topic, members toggle
+│   │   │   │   ├── MembersSidebar.tsx # Online/Offline workspace member roster
+│   │   │   │   ├── Sidebar.tsx        # Channels & Direct Messages sidebar with header menu
+│   │   │   │   └── WorkspaceSidebar.tsx # Vertical workspace dock with unread badges
+│   │   │   └── modals/
+│   │   │       ├── BrowseChannelsModal.tsx  # Channel discovery and join requests
+│   │   │       ├── CreateChannelModal.tsx  # Public / Private channel creation
+│   │   │       ├── DeleteWorkspaceModal.tsx # Workspace deletion confirmation
+│   │   │       ├── InviteMembersModal.tsx   # Add members to private channels
+│   │   │       ├── NewDmModal.tsx           # Start direct messages
+│   │   │       ├── WorkspaceActionModal.tsx # Create or join workspace
+│   │   │       └── WorkspaceInviteModal.tsx # View & regenerate workspace invite code
 │   │   ├── services/
 │   │   │   ├── api.ts                 # Axios instance with auth interceptor
 │   │   │   └── signalr.ts             # SignalR client with auto-reconnect
-│   │   ├── store/                     # Zustand stores (authStore, chatStore)
+│   │   ├── store/
+│   │   │   ├── authStore.ts           # Authentication & active user state
+│   │   │   ├── chatStore.ts           # Channels, messages, typing, unread state
+│   │   │   └── workspaceStore.ts      # Workspaces, members, unread counts
 │   │   ├── types/                     # TypeScript interfaces
 │   │   ├── App.tsx
 │   │   ├── main.tsx
-│   │   └── index.css                  # Custom theme tokens & styles
+│   │   └── index.css                  # Theme tokens, layout, unread badges, animations
 │   └── vite.config.ts
 │
 ├── mobile/                            # React Native + Expo Mobile Application
@@ -132,10 +165,10 @@ pulse-chat/
 ### Prerequisites
 - [.NET SDK 9.0+](https://dotnet.microsoft.com/download)
 - [Node.js 18+](https://nodejs.org/)
-- [Expo Go App](https://expo.dev/go) on your iOS/Android phone, or an Android/iOS emulator
+- [Expo Go App](https://expo.dev/go) on your iOS/Android phone, or an Android/iOS emulator *(optional for mobile)*
 
 ### 1. Launch with One Click (Windows)
-Double-click `start.bat` or run:
+Double-click `start.bat` or run in PowerShell:
 ```powershell
 .\start.ps1
 ```
@@ -155,7 +188,7 @@ To launch the **Mobile Client**, double-click `start-mobile.bat` or run:
 cd backend
 dotnet run --urls "http://0.0.0.0:5000"
 ```
-The backend initializes SQLite (`pulsechat.db`) and seeds `#general`, `#random`, and `#dev`. Listening on `0.0.0.0` allows mobile devices on the same Wi-Fi network to connect.
+The backend initializes SQLite (`pulsechat.db`), seeds the default workspace and `#general`, `#random`, `#dev` channels. Listening on `0.0.0.0` allows mobile devices and other computers on the LAN to connect.
 
 #### Terminal 2 — Frontend (Web):
 ```bash
@@ -178,28 +211,30 @@ Scan the QR code with **Expo Go** (Android) or the Camera app (iOS) while connec
 
 ---
 
-## 🧪 Testing Real-Time Sync
+## 🧪 Testing Multi-User Real-Time Sync
 
-### A. Dual-Browser (Web to Web)
-1. Open `http://localhost:5173` in **Chrome Regular Window**:
+### A. Dual-Browser Test (Web to Web)
+1. Open `http://localhost:5173` in a **Standard Window**:
    - Click **"Sign in as Alice"** (or create a new account).
-2. Open `http://localhost:5173` in **Chrome Incognito** or **Firefox/Edge**:
+2. Open `http://localhost:5173` in an **Incognito Window** (or another browser):
    - Click **"Sign in as Bob"**.
-3. **Verify Real-Time Synchronization**:
-   - Type a message in `#general` from Alice $\rightarrow$ Bob sees it instantly.
-   - Start typing from Bob $\rightarrow$ Alice sees `"Bob is typing..."`.
-   - Bob shows a **green online dot** in Alice's member list.
-   - Click **"+"** next to Direct Messages to start a private conversation between Alice and Bob.
-   - Send emoji reactions on messages.
+3. **Test Workspaces & Unread Badges**:
+   - Click the **"+"** button on the left dock to create a new workspace (e.g. *"Gaming Lounge"*).
+   - Click the workspace name header $\rightarrow$ **"Invite People"** to copy the invite code.
+   - In Bob's window, click **"+"** $\rightarrow$ **"Join with Invite Code"** to join the workspace.
+   - In Alice's window, switch to a different channel or workspace.
+   - Send messages from Bob $\rightarrow$ observe the **red capsule badge** and Discord pill indicator increment in real time on Alice's workspace dock.
+4. **Test Channel Moderation & Join Approvals**:
+   - In a channel owned by Alice, click a member in the right member roster and select **"Remove from Channel"**.
+   - As Bob, open **"Browse Channels"** and click **"Join"** $\rightarrow$ note that a join request is submitted instead of direct joining.
+   - As Alice, review the pending join request with the note *"You previously removed this member"* and approve/reject.
 
-### B. Cross-Platform (Web to Mobile)
+### B. Cross-Platform Test (Web to Mobile)
 1. Ensure your PC and mobile device are on the **same Wi-Fi network**.
 2. Run `start.bat` (or `.\start.ps1`) to run Backend & Web.
-3. In `mobile/`:
-   - Copy `.env.example` to `.env` if needed, or leave it to auto-detect your local IP.
-   - Run `npx expo start` (or double-click `start-mobile.bat`).
+3. In `mobile/`, run `npx expo start` (or double-click `start-mobile.bat`).
 4. On your PC browser, sign in as **Alice**.
-5. On your Mobile device (via Expo Go or Android Emulator), tap **"Sign in as Bob"**.
+5. On your mobile device (via Expo Go or Android Emulator), tap **"Sign in as Bob"**.
 6. Send a message from mobile $\rightarrow$ see it pop up instantly on your PC browser! Send a reaction or start typing on either device to verify bi-directional SignalR streaming.
 
 ---
@@ -213,4 +248,4 @@ For detailed engineering rationales, architectural design decisions, and deep-di
 ---
 
 ## 📄 License
-This project is open-source and free under the MIT License.
+This project is open-source and free under the [MIT License](LICENSE).
