@@ -94,37 +94,49 @@ export const BrowseChannelsModal: React.FC<BrowseChannelsModalProps> = ({
       tabIndex={-1}
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 1050 }}
     >
-      <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable" style={{ maxWidth: '580px' }}>
+      <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable" style={{ maxWidth: '600px' }}>
         <div className="modal-content pc-modal">
-          <div className="modal-header pc-modal-header border-0 pb-2">
+          <div
+            className="modal-header pc-modal-header d-flex align-items-center justify-content-between p-3 border-bottom"
+            style={{ borderColor: 'var(--pc-border)' }}
+          >
             <div className="d-flex align-items-center gap-2">
-              <Users size={20} className="text-secondary" />
+              <Users size={20} className="text-primary" />
               <h5 className="modal-title fw-bold text-white mb-0">Browse Channels</h5>
             </div>
             <button
               type="button"
-              className="btn btn-sm btn-link text-secondary p-0"
+              className="btn btn-sm btn-link p-1 ms-auto d-flex align-items-center justify-content-center rounded-circle"
+              style={{
+                width: '32px',
+                height: '32px',
+                color: '#949ba4',
+                transition: 'background-color 0.15s, color 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                e.currentTarget.style.color = '#fff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = '#949ba4';
+              }}
               onClick={onClose}
+              aria-label="Close"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
 
-          <div className="modal-body pt-2">
-            <p className="text-secondary small mb-3">
+          <div className="modal-body p-3">
+            <p className="small mb-3" style={{ color: '#b5bac1', lineHeight: 1.5 }}>
               Explore public channels available in the workspace. Join channels that interest you, or leave ones you no longer follow.
             </p>
 
-            <div className="input-group mb-3">
-              <span
-                className="input-group-text border-0 text-secondary"
-                style={{ backgroundColor: '#1e1f22' }}
-              >
-                <Search size={16} />
-              </span>
+            <div className="pc-search-box mb-3">
+              <Search size={16} className="pc-search-icon" />
               <input
                 type="text"
-                className="form-control pc-input"
                 placeholder="Search channels by name or topic..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -134,42 +146,57 @@ export const BrowseChannelsModal: React.FC<BrowseChannelsModalProps> = ({
 
             {isLoading ? (
               <div className="text-center py-4">
-                <div className="spinner-border spinner-border-sm text-secondary" role="status" />
-                <div className="text-secondary small mt-2">Loading channels directory...</div>
+                <div className="spinner-border spinner-border-sm text-primary" role="status" />
+                <div className="small mt-2" style={{ color: '#949ba4' }}>Loading channels directory...</div>
               </div>
             ) : filteredChannels.length === 0 ? (
-              <div className="text-center py-4 text-secondary small">
+              <div className="text-center py-4 small" style={{ color: '#949ba4' }}>
                 No channels found matching &ldquo;{searchTerm}&rdquo;.
               </div>
             ) : (
-              <div className="d-flex flex-column gap-2" style={{ maxHeight: '360px', overflowY: 'auto' }}>
+              <div className="d-flex flex-column gap-2" style={{ maxHeight: '380px', overflowY: 'auto' }}>
                 {filteredChannels.map((channel) => {
                   const isBusy = actionLoading === channel.id;
 
                   return (
                     <div
                       key={channel.id}
-                      className="p-3 rounded d-flex align-items-center justify-content-between"
+                      className="p-3 rounded d-flex align-items-center justify-content-between gap-3"
                       style={{
                         backgroundColor: '#1e1f22',
                         border: '1px solid #383a40',
                         cursor: channel.isMember ? 'pointer' : 'default',
+                        transition: 'background-color 0.15s, border-color 0.15s',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = '#4e5058';
+                        e.currentTarget.style.backgroundColor = '#232529';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = '#383a40';
+                        e.currentTarget.style.backgroundColor = '#1e1f22';
                       }}
                       onClick={() => handleSelect(channel)}
                     >
-                      <div className="min-width-0 pe-3 flex-grow-1">
-                        <div className="d-flex align-items-center gap-2 mb-1">
+                      <div className="pe-1 flex-grow-1" style={{ minWidth: 0, overflow: 'hidden' }}>
+                        <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
                           {channel.isPrivate ? (
                             <Lock size={16} className="text-warning flex-shrink-0" />
                           ) : (
                             <Hash size={16} className="text-secondary flex-shrink-0" />
                           )}
-                          <span className="fw-bold text-white small">{channel.name}</span>
+                          <span
+                            className="fw-semibold text-white text-truncate"
+                            style={{ fontSize: '0.92rem', maxWidth: '240px' }}
+                            title={channel.name}
+                          >
+                            {channel.name}
+                          </span>
 
                           {channel.isProtected && (
                             <span
-                              className="badge rounded-pill d-inline-flex align-items-center gap-1"
-                              style={{ backgroundColor: '#2b2d31', color: '#949ba4', fontSize: '0.65rem' }}
+                              className="badge rounded-pill d-inline-flex align-items-center gap-1 flex-shrink-0"
+                              style={{ backgroundColor: '#2b2d31', color: '#b5bac1', fontSize: '0.68rem', border: '1px solid #3f4147' }}
                             >
                               <Shield size={10} />
                               Default
@@ -178,8 +205,8 @@ export const BrowseChannelsModal: React.FC<BrowseChannelsModalProps> = ({
 
                           {channel.isMember && (
                             <span
-                              className="badge rounded-pill d-inline-flex align-items-center gap-1"
-                              style={{ backgroundColor: 'rgba(35, 165, 90, 0.2)', color: 'var(--pc-online)', fontSize: '0.65rem' }}
+                              className="badge rounded-pill d-inline-flex align-items-center gap-1 flex-shrink-0"
+                              style={{ backgroundColor: 'rgba(35, 165, 90, 0.2)', color: '#23a55a', fontSize: '0.68rem', border: '1px solid rgba(35, 165, 90, 0.35)' }}
                             >
                               <Check size={10} />
                               Joined
@@ -188,8 +215,8 @@ export const BrowseChannelsModal: React.FC<BrowseChannelsModalProps> = ({
 
                           {channel.hasPendingJoinRequest && (
                             <span
-                              className="badge rounded-pill d-inline-flex align-items-center gap-1"
-                              style={{ backgroundColor: 'rgba(234, 179, 8, 0.2)', color: '#facc15', fontSize: '0.65rem' }}
+                              className="badge rounded-pill d-inline-flex align-items-center gap-1 flex-shrink-0"
+                              style={{ backgroundColor: 'rgba(234, 179, 8, 0.2)', color: '#facc15', fontSize: '0.68rem', border: '1px solid rgba(234, 179, 8, 0.35)' }}
                             >
                               Pending Approval
                             </span>
@@ -197,8 +224,8 @@ export const BrowseChannelsModal: React.FC<BrowseChannelsModalProps> = ({
 
                           {channel.wasKicked && !channel.hasPendingJoinRequest && !channel.isMember && (
                             <span
-                              className="badge rounded-pill d-inline-flex align-items-center gap-1"
-                              style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#f87171', fontSize: '0.65rem' }}
+                              className="badge rounded-pill d-inline-flex align-items-center gap-1 flex-shrink-0"
+                              style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#f87171', fontSize: '0.68rem', border: '1px solid rgba(239, 68, 68, 0.3)' }}
                             >
                               Removed by Leader
                             </span>
@@ -207,17 +234,22 @@ export const BrowseChannelsModal: React.FC<BrowseChannelsModalProps> = ({
 
                         {channel.description && (
                           <div
-                            className="text-secondary small text-truncate"
-                            style={{ fontSize: '0.8rem' }}
+                            className="text-truncate"
+                            style={{
+                              color: '#b5bac1',
+                              fontSize: '0.82rem',
+                              lineHeight: 1.4,
+                            }}
+                            title={channel.description}
                           >
                             {channel.description}
                           </div>
                         )}
 
-                        <div className="text-secondary mt-1" style={{ fontSize: '0.72rem' }}>
+                        <div className="mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.75rem', color: '#949ba4' }}>
                           <span>👥 {channel.memberCount} member{channel.memberCount === 1 ? '' : 's'}</span>
                           {channel.ownerUsername && (
-                            <span className="ms-2">• Created by {channel.ownerUsername}</span>
+                            <span>• Created by <strong className="text-light fw-medium">{channel.ownerUsername}</strong></span>
                           )}
                         </div>
                       </div>

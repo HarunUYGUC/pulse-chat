@@ -104,14 +104,15 @@ export const WorkspaceActionModal: React.FC<WorkspaceActionModalProps> = ({
         </div>
 
         {/* Tab Switcher */}
-        <div className="d-flex border-bottom" style={{ borderColor: 'var(--pc-border)', backgroundColor: 'rgba(0,0,0,0.1)' }}>
+        <div className="d-flex border-bottom" style={{ borderColor: 'var(--pc-border)', backgroundColor: 'rgba(0,0,0,0.15)' }}>
           <button
             type="button"
-            className={`btn flex-fill rounded-0 py-2 fw-medium small d-flex align-items-center justify-content-center gap-2 ${
+            className={`btn flex-fill rounded-0 py-2 fw-semibold small d-flex align-items-center justify-content-center gap-2 ${
               activeTab === 'create'
                 ? 'text-white border-bottom border-2 border-primary bg-transparent'
-                : 'text-secondary bg-transparent border-0'
+                : 'bg-transparent border-0'
             }`}
+            style={activeTab !== 'create' ? { color: '#949ba4' } : undefined}
             onClick={() => {
               setActiveTab('create');
               setError(null);
@@ -122,11 +123,12 @@ export const WorkspaceActionModal: React.FC<WorkspaceActionModalProps> = ({
           </button>
           <button
             type="button"
-            className={`btn flex-fill rounded-0 py-2 fw-medium small d-flex align-items-center justify-content-center gap-2 ${
+            className={`btn flex-fill rounded-0 py-2 fw-semibold small d-flex align-items-center justify-content-center gap-2 ${
               activeTab === 'join'
                 ? 'text-white border-bottom border-2 border-primary bg-transparent'
-                : 'text-secondary bg-transparent border-0'
+                : 'bg-transparent border-0'
             }`}
+            style={activeTab !== 'join' ? { color: '#949ba4' } : undefined}
             onClick={() => {
               setActiveTab('join');
               setError(null);
@@ -147,17 +149,17 @@ export const WorkspaceActionModal: React.FC<WorkspaceActionModalProps> = ({
 
           {activeTab === 'create' ? (
             <form onSubmit={handleCreate}>
-              <div className="text-secondary small mb-3">
+              <div className="small mb-3" style={{ color: '#b5bac1', lineHeight: 1.5 }}>
                 Your workspace is where your team or friends hang out. Make it yours and invite members with a unique code!
               </div>
 
               <div className="mb-3">
-                <label className="form-label text-secondary small fw-semibold text-uppercase">
+                <label className="pc-form-label">
                   Workspace Name
                 </label>
                 <input
                   type="text"
-                  className="form-control form-control-dark"
+                  className="form-control pc-input"
                   placeholder="e.g. Acme Dev Team, Gaming Club"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -168,11 +170,11 @@ export const WorkspaceActionModal: React.FC<WorkspaceActionModalProps> = ({
               </div>
 
               <div className="mb-3">
-                <label className="form-label text-secondary small fw-semibold text-uppercase">
-                  Description <span className="text-muted fw-normal">(Optional)</span>
+                <label className="pc-form-label">
+                  Description <span className="fw-normal font-monospace" style={{ textTransform: 'none', fontSize: '0.75rem', color: '#949ba4' }}>(Optional)</span>
                 </label>
                 <textarea
-                  className="form-control form-control-dark"
+                  className="form-control pc-input"
                   rows={2}
                   placeholder="What is this workspace about?"
                   value={description}
@@ -201,21 +203,32 @@ export const WorkspaceActionModal: React.FC<WorkspaceActionModalProps> = ({
             </form>
           ) : (
             <form onSubmit={handleJoin}>
-              <div className="text-secondary small mb-3">
-                Enter an invite code below to join an existing workspace. Invite codes look like <code className="text-primary fw-bold">PULSE-XXXXXX</code>.
+              <div className="small mb-3" style={{ color: '#b5bac1', lineHeight: 1.5 }}>
+                Enter an invite code below to join an existing workspace. Invite codes look like{' '}
+                <code className="px-1 py-0.5 rounded text-white" style={{ backgroundColor: '#1e1f22', border: '1px solid #3f4147' }}>
+                  PULSE-XXXXXX
+                </code>
+                .
               </div>
 
               <div className="mb-3">
-                <label className="form-label text-secondary small fw-semibold text-uppercase">
+                <label className="pc-form-label">
                   Invite Code
                 </label>
                 <div className="input-group">
-                  <span className="input-group-text bg-dark border-secondary text-secondary">
+                  <span
+                    className="input-group-text"
+                    style={{
+                      backgroundColor: 'var(--pc-bg-sidebar)',
+                      borderColor: 'var(--pc-border)',
+                      color: '#949ba4',
+                    }}
+                  >
                     <Key size={16} />
                   </span>
                   <input
                     type="text"
-                    className="form-control form-control-dark"
+                    className="form-control pc-input font-monospace fw-semibold"
                     placeholder="PULSE-XXXXXX"
                     value={inviteCode}
                     onChange={(e) => setInviteCode(e.target.value.toUpperCase())}

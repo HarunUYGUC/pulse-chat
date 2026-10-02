@@ -490,14 +490,104 @@ body {
 .form-control.pc-input {
   background-color: var(--pc-bg-sidebar);
   border: 1px solid var(--pc-border);
-  color: var(--pc-text-header);
+  color: var(--pc-text-header) !important;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  padding: 0.55rem 0.85rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-control.pc-input::placeholder {
+  color: #949ba4 !important;
+  opacity: 1;
+  font-weight: 400;
+  font-size: 0.88rem;
+}
+
+.form-control.pc-input:hover {
+  border-color: #555861;
 }
 
 .form-control.pc-input:focus {
   background-color: var(--pc-bg-sidebar);
   border-color: var(--pc-primary);
-  color: var(--pc-text-header);
-  box-shadow: 0 0 0 0.25rem rgba(88, 101, 242, 0.25);
+  color: var(--pc-text-header) !important;
+  box-shadow: 0 0 0 0.2rem rgba(88, 101, 242, 0.35);
+}
+
+.form-control.pc-input:-webkit-autofill,
+.form-control.pc-input:-webkit-autofill:hover,
+.form-control.pc-input:-webkit-autofill:focus,
+.form-control.pc-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #1e1f22 inset !important;
+  -webkit-text-fill-color: #f2f3f5 !important;
+  caret-color: #f2f3f5 !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.form-control.pc-input::selection {
+  background-color: rgba(88, 101, 242, 0.45);
+  color: #ffffff;
+}
+
+.pc-form-label {
+  color: #b5bac1;
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.35rem;
+  display: block;
+}
+
+/* Unified Search Box with :focus-within */
+.pc-search-box {
+  display: flex;
+  align-items: center;
+  background-color: var(--pc-bg-sidebar);
+  border: 1px solid var(--pc-border);
+  border-radius: 6px;
+  padding: 0 0.75rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  width: 100%;
+}
+
+.pc-search-box:hover {
+  border-color: #555861;
+}
+
+.pc-search-box:focus-within {
+  border-color: var(--pc-primary);
+  box-shadow: 0 0 0 0.2rem rgba(88, 101, 242, 0.35);
+}
+
+.pc-search-box .pc-search-icon {
+  color: #949ba4;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.pc-search-box:focus-within .pc-search-icon {
+  color: var(--pc-primary);
+}
+
+.pc-search-box input {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  color: var(--pc-text-header) !important;
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 0.55rem 0.65rem;
+  width: 100%;
+}
+
+.pc-search-box input::placeholder {
+  color: #949ba4 !important;
+  font-size: 0.88rem;
+  font-weight: 400;
 }
 
 /* Workspace Sidebar Navigation Dock (Discord style) */
@@ -645,16 +735,42 @@ body {
 }
 
 .form-control-dark {
-  background-color: var(--pc-bg-input);
+  background-color: var(--pc-bg-sidebar);
   border: 1px solid var(--pc-border);
-  color: var(--pc-text-header);
+  color: var(--pc-text-header) !important;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  padding: 0.55rem 0.85rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-control-dark::placeholder {
+  color: #949ba4 !important;
+  opacity: 1;
+  font-weight: 400;
+  font-size: 0.88rem;
+}
+
+.form-control-dark:hover {
+  border-color: #555861;
 }
 
 .form-control-dark:focus {
-  background-color: var(--pc-bg-input);
+  background-color: var(--pc-bg-sidebar);
   border-color: var(--pc-primary);
-  color: #fff;
-  box-shadow: 0 0 0 0.2rem rgba(88, 101, 242, 0.25);
+  color: var(--pc-text-header) !important;
+  box-shadow: 0 0 0 0.2rem rgba(88, 101, 242, 0.35);
+}
+
+.form-control-dark:-webkit-autofill,
+.form-control-dark:-webkit-autofill:hover,
+.form-control-dark:-webkit-autofill:focus,
+.form-control-dark:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #1e1f22 inset !important;
+  -webkit-text-fill-color: #f2f3f5 !important;
+  caret-color: #f2f3f5 !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
 
 @keyframes fadeIn {

@@ -89,24 +89,25 @@ export const AuthPage: React.FC = () => {
 
   return (
     <div
-      className="d-flex align-items-center justify-content-center w-100 vh-100"
+      className="w-100 vh-100 overflow-y-auto"
       style={{
         backgroundColor: '#1e1f22',
         backgroundImage:
           'radial-gradient(circle at 50% 30%, rgba(88, 101, 242, 0.15), transparent 60%)',
       }}
     >
-      <div
-        className="card shadow-lg border-0"
-        style={{
-          width: '100%',
-          maxWidth: '460px',
-          backgroundColor: '#2b2d31',
-          color: '#dbdee1',
-          borderRadius: '12px',
-        }}
-      >
-        <div className="card-body p-4 p-md-5">
+      <div className="min-vh-100 d-flex align-items-center justify-content-center p-3 py-sm-4">
+        <div
+          className="card shadow-lg border-0"
+          style={{
+            width: '100%',
+            maxWidth: '460px',
+            backgroundColor: '#2b2d31',
+            color: '#dbdee1',
+            borderRadius: '12px',
+          }}
+        >
+          <div className="card-body p-4">
           {/* Brand Header */}
           <div className="text-center mb-4">
             <div
@@ -163,12 +164,12 @@ export const AuthPage: React.FC = () => {
           {/* Form */}
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
-              <label className="form-label small fw-semibold text-uppercase text-secondary">
+              <label className="pc-form-label">
                 {isLogin ? 'Username or Email' : 'Username'}
               </label>
               <input
                 type="text"
-                className="form-control pc-input py-2"
+                className="form-control pc-input"
                 placeholder={isLogin ? 'e.g. Alice or alice@pulsechat.local' : 'Choose a username (min 3 chars)'}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -179,12 +180,12 @@ export const AuthPage: React.FC = () => {
 
             {!isLogin && (
               <div className="mb-3">
-                <label className="form-label small fw-semibold text-uppercase text-secondary">
+                <label className="pc-form-label">
                   Email Address
                 </label>
                 <input
                   type="email"
-                  className="form-control pc-input py-2"
+                  className="form-control pc-input"
                   placeholder="name@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -194,12 +195,12 @@ export const AuthPage: React.FC = () => {
             )}
 
             <div className="mb-3">
-              <label className="form-label small fw-semibold text-uppercase text-secondary">
+              <label className="pc-form-label">
                 Password
               </label>
               <input
                 type="password"
-                className="form-control pc-input py-2"
+                className="form-control pc-input"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -210,12 +211,12 @@ export const AuthPage: React.FC = () => {
             {!isLogin && (
               <>
                 <div className="mb-3">
-                  <label className="form-label small fw-semibold text-uppercase text-secondary">
-                    Avatar Image URL <span className="text-muted fw-normal">(Optional)</span>
+                  <label className="pc-form-label">
+                    Avatar Image URL <span className="text-secondary fw-normal font-monospace" style={{ textTransform: 'none', fontSize: '0.75rem' }}>(Optional)</span>
                   </label>
                   <input
                     type="url"
-                    className="form-control pc-input py-2"
+                    className="form-control pc-input"
                     placeholder="https://example.com/avatar.png"
                     value={avatarUrl}
                     onChange={(e) => setAvatarUrl(e.target.value)}
@@ -223,12 +224,12 @@ export const AuthPage: React.FC = () => {
                 </div>
 
                 <div className="mb-4">
-                  <label className="form-label small fw-semibold text-uppercase text-secondary">
-                    Workspace Invite Code <span className="text-muted fw-normal">(Optional)</span>
+                  <label className="pc-form-label">
+                    Workspace Invite Code <span className="text-secondary fw-normal font-monospace" style={{ textTransform: 'none', fontSize: '0.75rem' }}>(Optional)</span>
                   </label>
                   <input
                     type="text"
-                    className="form-control pc-input py-2 font-monospace"
+                    className="form-control pc-input font-monospace"
                     placeholder="e.g. PULSE-8X92"
                     value={inviteCode}
                     onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
@@ -275,5 +276,6 @@ export const AuthPage: React.FC = () => {
         </div>
       </div>
     </div>
+  </div>
   );
 };

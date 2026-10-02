@@ -87,26 +87,44 @@ export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, 
     >
       <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '480px' }}>
         <div className="modal-content pc-modal">
-          <div className="modal-header pc-modal-header border-0 pb-0">
+          <div
+            className="modal-header pc-modal-header d-flex align-items-center justify-content-between p-3 border-bottom"
+            style={{ borderColor: 'var(--pc-border)' }}
+          >
             <div className="d-flex align-items-center gap-2">
               {isPrivate ? (
                 <Lock size={20} className="text-warning" />
               ) : (
-                <Hash size={20} className="text-secondary" />
+                <Hash size={20} className="text-primary" />
               )}
               <h5 className="modal-title fw-bold text-white mb-0">Create Channel</h5>
             </div>
             <button
               type="button"
-              className="btn btn-sm btn-link text-secondary p-0"
+              className="btn btn-sm btn-link p-1 ms-auto d-flex align-items-center justify-content-center rounded-circle"
+              style={{
+                width: '32px',
+                height: '32px',
+                color: '#949ba4',
+                transition: 'background-color 0.15s, color 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                e.currentTarget.style.color = '#fff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = '#949ba4';
+              }}
               onClick={onClose}
+              aria-label="Close"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
 
           <form onSubmit={handleSubmit}>
-            <div className="modal-body pt-3">
+            <div className="modal-body p-3">
               {error && (
                 <div className="alert alert-danger py-2 px-3 small border-0 mb-3" role="alert">
                   {error}
@@ -115,19 +133,15 @@ export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, 
 
               {/* Channel Name */}
               <div className="mb-3">
-                <label className="form-label small fw-bold text-uppercase text-secondary">
+                <label className="pc-form-label">
                   Channel Name
                 </label>
-                <div className="input-group">
-                  <span
-                    className="input-group-text border-0 text-secondary"
-                    style={{ backgroundColor: '#1e1f22' }}
-                  >
-                    {isPrivate ? <Lock size={15} /> : '#'}
+                <div className="pc-search-box">
+                  <span className="pc-search-icon fw-bold fs-6" style={{ minWidth: '16px', textAlign: 'center' }}>
+                    {isPrivate ? <Lock size={15} className="text-warning" /> : '#'}
                   </span>
                   <input
                     type="text"
-                    className="form-control pc-input"
                     placeholder="e.g. project-x, marketing"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -139,8 +153,8 @@ export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, 
 
               {/* Topic / Description */}
               <div className="mb-3">
-                <label className="form-label small fw-bold text-uppercase text-secondary">
-                  Topic / Description (Optional)
+                <label className="pc-form-label">
+                  Topic / Description <span className="fw-normal font-monospace" style={{ textTransform: 'none', fontSize: '0.75rem', color: '#949ba4' }}>(Optional)</span>
                 </label>
                 <textarea
                   className="form-control pc-input"
@@ -159,10 +173,10 @@ export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, 
                 <div className="d-flex align-items-center justify-content-between">
                   <div className="me-3">
                     <div className="d-flex align-items-center gap-2">
-                      <Lock size={16} className={isPrivate ? 'text-warning' : 'text-secondary'} />
+                      <Lock size={16} className={isPrivate ? 'text-warning' : 'text-primary'} />
                       <span className="fw-semibold text-white small">Make Private Channel</span>
                     </div>
-                    <div className="text-secondary" style={{ fontSize: '0.75rem', marginTop: '2px' }}>
+                    <div style={{ fontSize: '0.78rem', color: '#b5bac1', marginTop: '2px', lineHeight: 1.4 }}>
                       {isPrivate
                         ? 'Only invited members can view or join this channel.'
                         : 'Anyone in the workspace can browse and join this channel.'}
@@ -185,12 +199,12 @@ export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, 
                 {/* If Private: Invite Members Picker */}
                 {isPrivate && (
                   <div className="mt-3 pt-3 border-top" style={{ borderColor: '#383a40' }}>
-                    <div className="small fw-semibold text-secondary mb-2">
+                    <div className="small fw-semibold mb-2" style={{ color: '#b5bac1' }}>
                       Invite Team Members ({selectedUserIds.length} selected):
                     </div>
 
                     {otherUsers.length === 0 ? (
-                      <div className="text-secondary small fst-italic">
+                      <div className="small fst-italic" style={{ color: '#949ba4' }}>
                         No other registered users in workspace yet.
                       </div>
                     ) : (
@@ -203,8 +217,9 @@ export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, 
                               className="d-flex align-items-center justify-content-between p-2 rounded mb-1"
                               style={{
                                 backgroundColor: isSelected ? 'rgba(88, 101, 242, 0.15)' : '#2b2d31',
-                                border: isSelected ? '1px solid var(--pc-primary)' : '1px solid transparent',
+                                border: isSelected ? '1px solid var(--pc-primary)' : '1px solid #383a40',
                                 cursor: 'pointer',
+                                transition: 'background-color 0.15s, border-color 0.15s',
                               }}
                               onClick={() => toggleUserSelection(target.id)}
                             >
