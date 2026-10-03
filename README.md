@@ -37,6 +37,13 @@ PulseChat is a production-grade, full-stack real-time messaging and collaboratio
 - **Emoji Reactions**: Interactive message reactions (👍, ❤️, 🔥, 😂, 🚀, 🎉) with live user list tooltips and counters.
 - **Persistent Unread Divider**: Per-user database-persisted read markers (`LastReadMessageId`, `LastReadAt`) with a red `─── NEW MESSAGES ───` line showing where you left off.
 
+### 👤 User Profile Management & Account Security
+- **Profile Customization Modal**: Modern, responsive modal accessible via the user status bar or the gear (`⚙️`) settings button in the sidebar footer.
+- **Avatar Personalization**: Select from 8 curated DiceBear avatar presets, generate randomized avatars with one click, paste custom image URLs, or reset to default initials.
+- **Live Username Updates**: Case-insensitive uniqueness validation on the backend with instant multi-user SignalR synchronization (`UserUpdated`) updating chat messages and member rosters live without page reloads.
+- **Secure Password Changes**: BCrypt-verified password updating requiring current password confirmation, minimum length enforcement, and real-time inline validation feedback.
+- **Smart Responsive Layout**: Tabbed layout (*Profile Details* / *Change Password*) with pinned headers, pinned action footers, and scrollable body designed for all screen sizes.
+
 ### 🔐 Security & Persistence
 - **JWT Authentication & BCrypt**: Password hashing with BCrypt and JWT Bearer tokens passed via HTTP Authorization headers and WebSocket query strings.
 - **1-Click Quick Demo Accounts**: Instant "Sign in as Alice" and "Sign in as Bob" buttons for rapid multi-user testing.
@@ -122,6 +129,7 @@ pulse-chat/
 │   │   │       ├── DeleteWorkspaceModal.tsx # Workspace deletion confirmation
 │   │   │       ├── InviteMembersModal.tsx   # Add members to private channels
 │   │   │       ├── NewDmModal.tsx           # Start direct messages
+│   │   │       ├── ProfileSettingsModal.tsx # Profile customization & password change
 │   │   │       ├── WorkspaceActionModal.tsx # Create or join workspace
 │   │   │       └── WorkspaceInviteModal.tsx # View & regenerate workspace invite code
 │   │   ├── services/
