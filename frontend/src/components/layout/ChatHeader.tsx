@@ -155,7 +155,9 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               <div className="position-relative" ref={menuRef}>
                 <button
                   type="button"
-                  className="btn btn-sm btn-outline-secondary py-1 px-2 text-secondary"
+                  className={`btn btn-sm ${
+                    showMenu ? 'btn-secondary text-white' : 'btn-outline-secondary'
+                  } py-1 px-2`}
                   onClick={() => setShowMenu(!showMenu)}
                   title="Channel Settings"
                 >
