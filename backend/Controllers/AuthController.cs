@@ -221,6 +221,107 @@ public class AuthController : ControllerBase
     }
 
     [Authorize]
+    [HttpPut("profile")]
+    public async Task<ActionResult<AuthResponseDto>> UpdateProfile([FromBody] UpdateProfileDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var user = await _db.Users.FindAsync(userId);
+        if (user == null)
+            return NotFound(new { message = "User not found." });
+
+        var oldUsername = user.Username;
+        bool usernameChanged = false;
+
+        // 1. Username update
+        if (!string.IsNullOrWhiteSpace(dto.Username))
+        {
+            var trimmedUsername = dto.Username.Trim();
+            if (trimmedUsername.Length < 3 || trimmedUsername.Length > 30)
+            {
+                return BadRequest(new { message = "Username must be between 3 and 30 characters." });
+            }
+
+            if (!string.Equals(trimmedUsername, user.Username, StringComparison.OrdinalIgnoreCase))
+            {
+                var exists = await _db.Users.AnyAsync(u => u.Id != userId && u.Username.ToLower() == trimmedUsername.ToLower());
+                if (exists)
+                {
+                    return BadRequest(new { message = "Username is already taken by another user." });
+                }
+
+                user.Username = trimmedUsername;
+                usernameChanged = true;
+            }
+        }
+
+        // 2. AvatarUrl update
+        if (dto.AvatarUrl != null)
+        {
+            user.AvatarUrl = string.IsNullOrWhiteSpace(dto.AvatarUrl)
+                ? $"https://api.dicebear.com/7.x/initials/svg?seed={Uri.EscapeDataString(user.Username)}&backgroundColor=0d6efd"
+                : dto.AvatarUrl.Trim();
+        }
+
+        // 3. Password change
+        if (!string.IsNullOrWhiteSpace(dto.CurrentPassword) && string.IsNullOrWhiteSpace(dto.NewPassword))
+        {
+            return BadRequest(new { message = "New password is required when entering current password." });
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.NewPassword))
+        {
+            if (string.IsNullOrWhiteSpace(dto.CurrentPassword))
+            {
+                return BadRequest(new { message = "Current password is required to set a new password." });
+            }
+
+            if (string.IsNullOrWhiteSpace(user.PasswordHash) || !BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
+            {
+                return BadRequest(new { message = "Current password is incorrect." });
+            }
+
+            var trimmedNewPassword = dto.NewPassword.Trim();
+            if (trimmedNewPassword.Length < 6)
+            {
+                return BadRequest(new { message = "New password must be at least 6 characters." });
+            }
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(trimmedNewPassword);
+        }
+
+        await _db.SaveChangesAsync();
+
+        if (usernameChanged)
+        {
+            _presenceTracker.SwitchUsername(oldUsername, user.Username);
+        }
+
+        var userDto = new UserDto
+        {
+            Id = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            AvatarUrl = user.AvatarUrl,
+            CreatedAt = user.CreatedAt,
+            IsOnline = _presenceTracker.IsUserOnline(user.Username)
+        };
+
+        // Broadcast to all connected clients via SignalR
+        await _hubContext.Clients.All.SendAsync("UserUpdated", userDto);
+
+        var token = _tokenService.CreateToken(user);
+
+        return Ok(new AuthResponseDto
+        {
+            Token = token,
+            User = userDto
+        });
+    }
+
+    [Authorize]
     [HttpGet("users")]
     public async Task<ActionResult<System.Collections.Generic.IEnumerable<UserDto>>> GetAllUsers([FromQuery] int? workspaceId = null)
     {

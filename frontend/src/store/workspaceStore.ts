@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import api from '../services/api';
-import { Workspace, WorkspaceMember, CreateWorkspaceData, JoinWorkspaceData } from '../types';
+import { Workspace, WorkspaceMember, CreateWorkspaceData, JoinWorkspaceData, User } from '../types';
 import { useChatStore } from './chatStore';
 import { useAuthStore } from './authStore';
 import { joinWorkspace as signalrJoinWorkspace } from '../services/signalr';
@@ -27,6 +27,7 @@ interface WorkspaceState {
   memberJoined: (workspaceId: number, member: WorkspaceMember, memberCount?: number) => void;
   memberLeft: (workspaceId: number, userId: number, memberCount?: number) => void;
   updateMemberPresence: (username: string, isOnline: boolean) => void;
+  updateMemberProfile: (user: User) => void;
   incrementWorkspaceUnread: (workspaceId: number) => void;
   decrementWorkspaceUnread: (workspaceId: number, count?: number) => void;
   setWorkspaceUnread: (workspaceId: number, count: number) => void;
@@ -279,6 +280,16 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set((state) => ({
       members: state.members.map((m) =>
         m.username === username ? { ...m, isOnline } : m
+      ),
+    }));
+  },
+
+  updateMemberProfile: (user: User) => {
+    set((state) => ({
+      members: state.members.map((m) =>
+        Number(m.id) === Number(user.id)
+          ? { ...m, username: user.username, avatarUrl: user.avatarUrl }
+          : m
       ),
     }));
   },

@@ -145,3 +145,10 @@ export interface UserLeftChannelNotification {
   UserId?: number;
 }
 
+export interface UpdateProfileData {
+  username?: string;
+  avatarUrl?: string;
+  currentPassword?: string;
+  newPassword?: string;
+}
+

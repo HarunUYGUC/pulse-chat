@@ -34,6 +34,7 @@ interface ChatState {
   userJoinedChannel: (channelId: number, user: User) => void;
   workspaceMemberJoined: (workspaceId: number, member: WorkspaceMember) => void;
   userLeftChannel: (channelId: number, userId: number) => void;
+  handleUserUpdated: (user: User) => void;
   setActiveChannel: (channelId: number) => void;
   setMessages: (channelId: number, messages: Message[]) => void;
   addMessage: (message: Message) => void;
@@ -244,6 +245,73 @@ export const useChatStore = create<ChatState>((set, get) => ({
         };
       });
       return { channels: updatedChannels };
+    });
+  },
+
+  handleUserUpdated: (user: User) => {
+    set((state) => {
+      const oldUser = state.allUsers.find((u) => u.id === user.id);
+      const oldUsername = oldUser?.username;
+
+      // 1. Update allUsers
+      const allUsers = state.allUsers.some((u) => u.id === user.id)
+        ? state.allUsers.map((u) => (u.id === user.id ? { ...u, ...user } : u))
+        : [...state.allUsers, user];
+
+      // 2. Update channels (members & ownerUsername)
+      const channels = state.channels.map((c) => {
+        let memberUpdated = false;
+        const newMembers = c.members?.map((m) => {
+          if (m.id === user.id) {
+            memberUpdated = true;
+            return { ...m, ...user };
+          }
+          return m;
+        });
+
+        const ownerChanged = c.ownerId === user.id && c.ownerUsername !== user.username;
+        if (memberUpdated || ownerChanged) {
+          return {
+            ...c,
+            members: newMembers || c.members,
+            ownerUsername: c.ownerId === user.id ? user.username : c.ownerUsername,
+          };
+        }
+        return c;
+      });
+
+      // 3. Update messages (senderUsername & senderAvatarUrl)
+      const messages = { ...state.messages };
+      for (const chId in messages) {
+        let msgListChanged = false;
+        const updatedList = messages[chId].map((msg) => {
+          if (msg.senderId === user.id) {
+            msgListChanged = true;
+            return {
+              ...msg,
+              senderUsername: user.username,
+              senderAvatarUrl: user.avatarUrl,
+            };
+          }
+          return msg;
+        });
+        if (msgListChanged) {
+          messages[chId] = updatedList;
+        }
+      }
+
+      // 4. Update onlineUsers if username changed
+      let onlineUsers = state.onlineUsers;
+      if (oldUsername && oldUsername !== user.username) {
+        onlineUsers = onlineUsers.map((name) => (name === oldUsername ? user.username : name));
+      }
+
+      return {
+        allUsers,
+        channels,
+        messages,
+        onlineUsers,
+      };
     });
   },
 

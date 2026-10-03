@@ -45,3 +45,16 @@ public class AuthResponseDto
     public string Token { get; set; } = string.Empty;
     public UserDto User { get; set; } = null!;
 }
+
+public class UpdateProfileDto
+{
+    [MinLength(3), MaxLength(30)]
+    public string? Username { get; set; }
+
+    public string? AvatarUrl { get; set; }
+
+    public string? CurrentPassword { get; set; }
+
+    [MinLength(6)]
+    public string? NewPassword { get; set; }
+}

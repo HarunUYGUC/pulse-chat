@@ -68,4 +68,15 @@ public class PresenceTracker
             return OnlineUsers.ContainsKey(username);
         }
     }
+
+    public void SwitchUsername(string oldUsername, string newUsername)
+    {
+        lock (OnlineUsers)
+        {
+            if (OnlineUsers.TryRemove(oldUsername, out var connections))
+            {
+                OnlineUsers[newUsername] = connections;
+            }
+        }
+    }
 }

@@ -8,6 +8,7 @@ import {
   LogOut,
   ChevronDown,
   Trash2,
+  Settings,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useChatStore } from '../../store/chatStore';
@@ -17,6 +18,7 @@ import { NewDmModal } from '../modals/NewDmModal';
 import { BrowseChannelsModal } from '../modals/BrowseChannelsModal';
 import { WorkspaceInviteModal } from '../modals/WorkspaceInviteModal';
 import { DeleteWorkspaceModal } from '../modals/DeleteWorkspaceModal';
+import { ProfileSettingsModal } from '../modals/ProfileSettingsModal';
 
 export const Sidebar: React.FC = () => {
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
@@ -24,6 +26,7 @@ export const Sidebar: React.FC = () => {
   const [isBrowseModalOpen, setIsBrowseModalOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isWsMenuOpen, setIsWsMenuOpen] = useState(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -302,7 +305,16 @@ export const Sidebar: React.FC = () => {
 
         {/* User Status Bar Footer */}
         <div className="sidebar-footer">
-          <div className="d-flex align-items-center gap-2 text-truncate" style={{ maxWidth: '180px' }}>
+          <div
+            className="d-flex align-items-center gap-2 text-truncate flex-grow-1 p-1 rounded"
+            style={{ maxWidth: '160px', cursor: 'pointer', transition: 'background-color 0.15s ease' }}
+            onClick={() => setIsProfileModalOpen(true)}
+            title="Edit Profile"
+            role="button"
+            tabIndex={0}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+          >
             <div className="position-relative flex-shrink-0">
               <img
                 src={
@@ -323,14 +335,24 @@ export const Sidebar: React.FC = () => {
             </div>
           </div>
 
-          <button
-            type="button"
-            className="btn btn-sm btn-link text-secondary p-1"
-            title="Log Out"
-            onClick={logout}
-          >
-            <LogOut size={18} />
-          </button>
+          <div className="d-flex align-items-center gap-1">
+            <button
+              type="button"
+              className="btn btn-sm btn-link text-secondary p-1"
+              title="Profile Settings"
+              onClick={() => setIsProfileModalOpen(true)}
+            >
+              <Settings size={18} />
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-link text-secondary p-1"
+              title="Log Out"
+              onClick={logout}
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -355,6 +377,10 @@ export const Sidebar: React.FC = () => {
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         workspace={activeWorkspace ?? null}
+      />
+      <ProfileSettingsModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
       />
     </>
   );

@@ -1,6 +1,7 @@
 import * as signalR from '@microsoft/signalr';
 import { useChatStore } from '../store/chatStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
+import { useAuthStore } from '../store/authStore';
 import {
   Message,
   TypingNotification,
@@ -11,6 +12,7 @@ import {
   UserJoinedChannelNotification,
   UserLeftChannelNotification,
   ChannelJoinRequest,
+  User,
 } from '../types';
 
 let hubConnection: signalR.HubConnection | null = null;
@@ -99,6 +101,14 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
 
   hubConnection.on('GetOnlineUsers', (users: string[]) => {
     useChatStore.getState().setOnlineUsers(users);
+  });
+
+  hubConnection.on('UserUpdated', (user: User) => {
+    if (useAuthStore.getState().user?.id === user.id) {
+      useAuthStore.getState().setUser(user);
+    }
+    useChatStore.getState().handleUserUpdated(user);
+    useWorkspaceStore.getState().updateMemberProfile(user);
   });
 
   // Workspace real-time event listeners

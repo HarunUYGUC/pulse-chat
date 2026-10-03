@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import api from '../services/api';
-import { User, LoginData, RegisterData, AuthResponse } from '../types';
+import { User, LoginData, RegisterData, AuthResponse, UpdateProfileData } from '../types';
 import { useChatStore } from './chatStore';
 
 interface AuthState {
@@ -11,6 +11,8 @@ interface AuthState {
   error: string | null;
   login: (data: LoginData) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
+  updateProfile: (data: UpdateProfileData) => Promise<User>;
+  setUser: (user: User) => void;
   logout: () => void;
   initAuth: () => Promise<void>;
   clearError: () => void;
@@ -98,6 +100,30 @@ export const useAuthStore = create<AuthState>((set) => ({
       const message =
         axiosError.response?.data?.message || 'Registration failed. Please try again.';
       set({ error: message, isLoading: false });
+      throw new Error(message);
+    }
+  },
+
+  setUser: (user: User) => set({ user }),
+
+  updateProfile: async (data: UpdateProfileData) => {
+    try {
+      const response = await api.put<AuthResponse>('/auth/profile', data);
+      const { token, user } = response.data;
+      if (token) {
+        localStorage.setItem('pulsechat_token', token);
+      }
+      set({
+        token: token || useAuthStore.getState().token,
+        user,
+        error: null,
+      });
+      return user;
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      const message =
+        axiosError.response?.data?.message || 'Failed to update profile. Please try again.';
+      set({ error: message });
       throw new Error(message);
     }
   },
