@@ -184,27 +184,6 @@ using (var scope = app.Services.CreateScope())
         CREATE INDEX IF NOT EXISTS ""IX_ChannelJoinRequests_UserId"" ON ""ChannelJoinRequests"" (""UserId"");
     ");
 
-    // Backfill all users into all public channels (Discord model, excluding kicked users)
-    try
-    {
-        db.Database.ExecuteSqlRaw(@"
-            INSERT OR IGNORE INTO ""ChannelMembers"" (""ChannelId"", ""UserId"", ""JoinedAt"")
-            SELECT c.""Id"", u.""Id"", datetime('now')
-            FROM ""Channels"" c
-            CROSS JOIN ""Users"" u
-            WHERE c.""IsDirectMessage"" = 0 AND c.""IsPrivate"" = 0
-            AND NOT EXISTS (
-                SELECT 1 FROM ""ChannelMembers"" cm
-                WHERE cm.""ChannelId"" = c.""Id"" AND cm.""UserId"" = u.""Id""
-            )
-            AND NOT EXISTS (
-                SELECT 1 FROM ""ChannelKickRecords"" ckr
-                WHERE ckr.""ChannelId"" = c.""Id"" AND ckr.""UserId"" = u.""Id""
-            );
-        ");
-    }
-    catch { }
-
     // Ensure Workspaces table exists
     db.Database.ExecuteSqlRaw(@"
         CREATE TABLE IF NOT EXISTS ""Workspaces"" (
@@ -257,16 +236,37 @@ using (var scope = app.Services.CreateScope())
     }
     catch { }
 
-    // Backfill existing users into Workspace 1
+    // Ensure workspace members are added to public channels within their own workspace
     try
     {
         db.Database.ExecuteSqlRaw(@"
-            INSERT OR IGNORE INTO ""WorkspaceMembers"" (""WorkspaceId"", ""UserId"", ""Role"", ""JoinedAt"")
-            SELECT 1, u.""Id"", CASE WHEN u.""Id"" = 1 THEN 'Owner' ELSE 'Member' END, datetime('now')
-            FROM ""Users"" u
-            WHERE NOT EXISTS (
+            INSERT OR IGNORE INTO ""ChannelMembers"" (""ChannelId"", ""UserId"", ""JoinedAt"")
+            SELECT c.""Id"", wm.""UserId"", datetime('now')
+            FROM ""Channels"" c
+            JOIN ""WorkspaceMembers"" wm ON c.""WorkspaceId"" = wm.""WorkspaceId""
+            WHERE c.""IsDirectMessage"" = 0 AND c.""IsPrivate"" = 0
+            AND NOT EXISTS (
+                SELECT 1 FROM ""ChannelMembers"" cm
+                WHERE cm.""ChannelId"" = c.""Id"" AND cm.""UserId"" = wm.""UserId""
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM ""ChannelKickRecords"" ckr
+                WHERE ckr.""ChannelId"" = c.""Id"" AND ckr.""UserId"" = wm.""UserId""
+            );
+        ");
+    }
+    catch { }
+
+    // Clean up any cross-workspace channel memberships that were erroneously created
+    try
+    {
+        db.Database.ExecuteSqlRaw(@"
+            DELETE FROM ""ChannelMembers""
+            WHERE ""ChannelId"" IN (SELECT ""Id"" FROM ""Channels"" WHERE ""WorkspaceId"" IS NOT NULL AND ""IsDirectMessage"" = 0)
+            AND NOT EXISTS (
                 SELECT 1 FROM ""WorkspaceMembers"" wm
-                WHERE wm.""WorkspaceId"" = 1 AND wm.""UserId"" = u.""Id""
+                JOIN ""Channels"" c ON c.""Id"" = ""ChannelMembers"".""ChannelId""
+                WHERE wm.""WorkspaceId"" = c.""WorkspaceId"" AND wm.""UserId"" = ""ChannelMembers"".""UserId""
             );
         ");
     }
