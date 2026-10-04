@@ -186,7 +186,7 @@ public class WorkspacesController : ControllerBase
             IsDirectMessage = false,
             IsPrivate = false,
             IsProtected = true,
-            OwnerId = currentUserId,
+            OwnerId = null,
             CreatedAt = DateTime.UtcNow
         };
 

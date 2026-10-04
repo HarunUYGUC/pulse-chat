@@ -20,7 +20,7 @@ PulseChat is a production-grade, full-stack real-time messaging and collaboratio
 - **Zero-Lag SignalR Updates**: Workspace unread counts increment instantly as messages arrive in any channel, and decrement as channels are read.
 
 ### 💬 Channels & Direct Messages
-- **Public & Private Channels**: Public channels (e.g. `#general`, `#random`, `#dev`) with instant broadcast, and private channels restricted to invited members.
+- **Public & Private Channels**: Default public channels (e.g. `#general`) and custom channels with instant broadcast, plus private channels restricted to invited members.
 - **1-on-1 Direct Messages**: Direct conversations with dedicated user-to-user routing, auto-naming, and conversation history.
 - **Browse Channels Modal**: Explore, discover, and join open channels within the active workspace.
 - **Channel Descriptions**: Informative descriptions displayed directly in the channel header and workspace context.
@@ -196,7 +196,7 @@ To launch the **Mobile Client**, double-click `start-mobile.bat` or run:
 cd backend
 dotnet run --urls "http://0.0.0.0:5000"
 ```
-The backend initializes SQLite (`pulsechat.db`), seeds the default workspace and `#general`, `#random`, `#dev` channels. Listening on `0.0.0.0` allows mobile devices and other computers on the LAN to connect.
+The backend initializes SQLite (`pulsechat.db`), seeds the default workspace and `#general` channel. Listening on `0.0.0.0` allows mobile devices and other computers on the LAN to connect.
 
 #### Terminal 2 — Frontend (Web):
 ```bash

@@ -6,7 +6,11 @@ import { InviteMembersModal } from '../modals/InviteMembersModal';
 import api from '../../services/api';
 import { Channel, User } from '../../types';
 
-export const MembersSidebar: React.FC = () => {
+interface MembersSidebarProps {
+  isOpen?: boolean;
+}
+
+export const MembersSidebar: React.FC<MembersSidebarProps> = ({ isOpen = true }) => {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [memberToKick, setMemberToKick] = useState<User | null>(null);
   const [isKicking, setIsKicking] = useState(false);
@@ -189,7 +193,7 @@ export const MembersSidebar: React.FC = () => {
 
   return (
     <>
-      <div className="members-sidebar">
+      <div className={`members-sidebar ${isOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-content">
           {/* Channel Leader Pending Join Requests */}
           {isChannelOwner && channelJoinRequests.length > 0 && (

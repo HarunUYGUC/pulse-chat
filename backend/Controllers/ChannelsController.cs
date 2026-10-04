@@ -748,7 +748,7 @@ public class ChannelsController : ControllerBase
             return NotFound(new { message = "Channel not found." });
 
         if (channel.IsProtected)
-            return BadRequest(new { message = "Default system channels (#general, #random, #dev) cannot be deleted." });
+            return BadRequest(new { message = "Default system channels (#general) cannot be deleted." });
 
         // Allow deletion if current user is owner OR if legacy channel has no owner and user is a member
         bool canDelete = (channel.OwnerId.HasValue && channel.OwnerId.Value == currentUserId)
@@ -865,6 +865,9 @@ public class ChannelsController : ControllerBase
 
         if (channel.IsDirectMessage)
             return BadRequest(new { message = "Cannot edit direct messages." });
+
+        if (channel.IsProtected)
+            return BadRequest(new { message = "Default protected channels (#general) cannot be modified." });
 
         bool canEdit = (channel.OwnerId.HasValue && channel.OwnerId.Value == currentUserId)
                     || (!channel.OwnerId.HasValue && channel.Members.Any(m => m.UserId == currentUserId));

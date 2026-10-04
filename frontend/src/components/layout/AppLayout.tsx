@@ -150,7 +150,7 @@ export const AppLayout: React.FC = () => {
       </div>
 
       {/* 4. Right Members Sidebar */}
-      {!hasNoWorkspaces && isMembersOpen && !isDm && <MembersSidebar />}
+      {!hasNoWorkspaces && !isDm && <MembersSidebar isOpen={isMembersOpen} />}
 
       <WorkspaceActionModal
         isOpen={isActionModalOpen}

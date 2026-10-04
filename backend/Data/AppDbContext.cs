@@ -137,29 +137,7 @@ public class AppDbContext : DbContext
                 Id = 1,
                 WorkspaceId = 1,
                 Name = "general",
-                Description = "Public announcements, introductions, and team chats",
-                IsDirectMessage = false,
-                IsPrivate = false,
-                IsProtected = true,
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new Channel
-            {
-                Id = 2,
-                WorkspaceId = 1,
-                Name = "random",
-                Description = "Watercooler conversations, fun links, and memes",
-                IsDirectMessage = false,
-                IsPrivate = false,
-                IsProtected = true,
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new Channel
-            {
-                Id = 3,
-                WorkspaceId = 1,
-                Name = "dev",
-                Description = "Engineering discussions, code reviews, and architecture debates",
+                Description = "General discussion for this workspace",
                 IsDirectMessage = false,
                 IsPrivate = false,
                 IsProtected = true,

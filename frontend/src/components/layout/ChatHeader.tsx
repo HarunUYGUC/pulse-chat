@@ -202,7 +202,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                       </button>
                     )}
 
-                    {!isDm && (isOwner || isProtected) && (
+                    {!isDm && isOwner && !isProtected && (
                       <button
                         type="button"
                         className="btn btn-sm w-100 text-start d-flex align-items-center gap-2 py-1 px-2 text-secondary hover-white"

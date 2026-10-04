@@ -107,10 +107,22 @@ using (var scope = app.Services.CreateScope())
     EnsureColumnExists(db, "ChannelMembers", "LastReadMessageId", "INTEGER NULL");
     EnsureColumnExists(db, "ChannelMembers", "LastReadAt", "TEXT NULL");
 
-    try { db.Database.ExecuteSqlRaw(@"UPDATE ""Channels"" SET ""IsProtected"" = 1, ""OwnerId"" = NULL WHERE ""Id"" IN (1, 2, 3);"); } catch { }
-    try { db.Database.ExecuteSqlRaw(@"UPDATE ""Channels"" SET ""Description"" = 'Company-wide announcements, introductions, and general team discussions' WHERE ""Id"" = 1;"); } catch { }
-    try { db.Database.ExecuteSqlRaw(@"UPDATE ""Channels"" SET ""Description"" = 'Watercooler chat, casual conversations, fun links, and memes' WHERE ""Id"" = 2;"); } catch { }
-    try { db.Database.ExecuteSqlRaw(@"UPDATE ""Channels"" SET ""Description"" = 'Engineering discussions, code reviews, technical architecture, and bug tracking' WHERE ""Id"" = 3;"); } catch { }
+    // Delete legacy #random and #dev channels and their associated records
+    try
+    {
+        db.Database.ExecuteSqlRaw(@"
+            DELETE FROM ""MessageReactions"" WHERE ""MessageId"" IN (SELECT ""Id"" FROM ""Messages"" WHERE ""ChannelId"" IN (SELECT ""Id"" FROM ""Channels"" WHERE ""Name"" IN ('random', 'dev')));
+            DELETE FROM ""Messages"" WHERE ""ChannelId"" IN (SELECT ""Id"" FROM ""Channels"" WHERE ""Name"" IN ('random', 'dev'));
+            DELETE FROM ""ChannelMembers"" WHERE ""ChannelId"" IN (SELECT ""Id"" FROM ""Channels"" WHERE ""Name"" IN ('random', 'dev'));
+            DELETE FROM ""ChannelJoinRequests"" WHERE ""ChannelId"" IN (SELECT ""Id"" FROM ""Channels"" WHERE ""Name"" IN ('random', 'dev'));
+            DELETE FROM ""ChannelKickRecords"" WHERE ""ChannelId"" IN (SELECT ""Id"" FROM ""Channels"" WHERE ""Name"" IN ('random', 'dev'));
+            DELETE FROM ""Channels"" WHERE ""Name"" IN ('random', 'dev');
+        ");
+    }
+    catch { }
+
+    try { db.Database.ExecuteSqlRaw(@"UPDATE ""Channels"" SET ""IsProtected"" = 1, ""OwnerId"" = NULL WHERE ""Name"" = 'general' OR ""Id"" = 1;"); } catch { }
+    try { db.Database.ExecuteSqlRaw(@"UPDATE ""Channels"" SET ""Description"" = 'General discussion for this workspace' WHERE ""Name"" = 'general' OR ""Id"" = 1;"); } catch { }
     try
     {
         db.Database.ExecuteSqlRaw(@"

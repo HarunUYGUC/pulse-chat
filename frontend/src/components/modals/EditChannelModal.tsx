@@ -19,7 +19,7 @@ export const EditChannelModal: React.FC<EditChannelModalProps> = ({
 
   const { updateChannelDescription } = useChatStore();
 
-  if (!isOpen) return null;
+  if (!isOpen || channel.isProtected) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
