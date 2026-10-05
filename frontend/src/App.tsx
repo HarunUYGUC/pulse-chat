@@ -57,14 +57,14 @@ export const App: React.FC = () => {
 
   if (!isAuthenticated) {
     return (
-      <ErrorBoundary fallbackTitle="Giriş Ekranında Hata Oluştu">
+      <ErrorBoundary fallbackTitle="Error on Login Screen">
         <AuthPage />
       </ErrorBoundary>
     );
   }
 
   return (
-    <ErrorBoundary fallbackTitle="Uygulama Yüklenirken Bir Hata Oluştu">
+    <ErrorBoundary fallbackTitle="Error Loading Application">
       <AppLayout />
     </ErrorBoundary>
   );

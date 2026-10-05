@@ -125,6 +125,7 @@ using (var scope = app.Services.CreateScope())
 
     try { db.Database.ExecuteSqlRaw(@"UPDATE ""Channels"" SET ""IsProtected"" = 1, ""OwnerId"" = NULL WHERE ""Name"" = 'general' OR ""Id"" = 1;"); } catch { }
     try { db.Database.ExecuteSqlRaw(@"UPDATE ""Channels"" SET ""Description"" = 'General discussion for this workspace' WHERE ""Name"" = 'general' OR ""Id"" = 1;"); } catch { }
+    try { db.Database.ExecuteSqlRaw(@"UPDATE ""Channels"" SET ""Name"" = 'General Voice' WHERE ""Name"" = 'Genel Ses';"); } catch { }
     try
     {
         db.Database.ExecuteSqlRaw(@"

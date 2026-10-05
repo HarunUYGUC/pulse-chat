@@ -177,7 +177,7 @@ public class WorkspacesController : ControllerBase
             JoinedAt = DateTime.UtcNow
         });
 
-        // 2. Automatically create default #general (text) and Genel Ses (voice) channels for this workspace
+        // 2. Automatically create default #general (text) and General Voice (voice) channels for this workspace
         var generalChannel = new Channel
         {
             Name = "general",
@@ -193,7 +193,7 @@ public class WorkspacesController : ControllerBase
 
         var voiceChannel = new Channel
         {
-            Name = "Genel Ses",
+            Name = "General Voice",
             Description = "Default voice lounge for team discussions and hangouts.",
             Type = "voice",
             WorkspaceId = workspace.Id,

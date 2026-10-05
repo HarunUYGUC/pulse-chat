@@ -54,11 +54,11 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
 
             <h4 className="fw-bold mb-2 text-white">
-              {this.props.fallbackTitle || 'Bir şeyler ters gitti'}
+              {this.props.fallbackTitle || 'Something went wrong'}
             </h4>
 
             <p className="small text-secondary mb-3">
-              Uygulama çalışırken beklenmedik bir arayüz hatası oluştu. Sayfayı yenileyerek tekrar deneyebilirsiniz.
+              An unexpected interface error occurred. You can refresh the page to try again.
             </p>
 
             {this.state.error && (
@@ -82,7 +82,7 @@ export class ErrorBoundary extends Component<Props, State> {
               style={{ backgroundColor: '#5865f2', border: 'none' }}
             >
               <RefreshCw size={16} />
-              <span>Sayfayı Yenile</span>
+              <span>Refresh Page</span>
             </button>
           </div>
         </div>

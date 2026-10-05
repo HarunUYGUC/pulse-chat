@@ -248,7 +248,7 @@ export const MembersSidebar: React.FC<MembersSidebarProps> = ({ isOpen = true })
                             lineHeight: '1.2',
                           }}
                         >
-                          <span>⚠️ Bu kişiyi siz atmıştınız</span>
+                          <span>⚠️ Previously kicked by you</span>
                         </div>
                       )}
 

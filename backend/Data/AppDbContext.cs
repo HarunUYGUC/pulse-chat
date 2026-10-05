@@ -148,7 +148,7 @@ public class AppDbContext : DbContext
             {
                 Id = 2,
                 WorkspaceId = 1,
-                Name = "Genel Ses",
+                Name = "General Voice",
                 Description = "Default voice lounge for team discussions and hangouts.",
                 Type = "voice",
                 IsDirectMessage = false,
