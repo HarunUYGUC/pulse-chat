@@ -2,6 +2,8 @@ import * as signalR from '@microsoft/signalr';
 import { useChatStore } from '../store/chatStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { useAuthStore } from '../store/authStore';
+import { useVoiceStore } from '../store/voiceStore';
+import { webrtcService } from './webrtcService';
 import {
   Message,
   TypingNotification,
@@ -13,6 +15,12 @@ import {
   UserLeftChannelNotification,
   ChannelJoinRequest,
   User,
+  VoiceParticipant,
+  VoiceOfferData,
+  VoiceAnswerData,
+  VoiceIceData,
+  VoiceStateNotification,
+  VoiceUserLeftNotification,
 } from '../types';
 
 let hubConnection: signalR.HubConnection | null = null;
@@ -44,7 +52,7 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
     .configureLogging(signalR.LogLevel.Information)
     .build();
 
-  // SignalR Event Listeners
+  // 1. Text & Chat Event Listeners
   hubConnection.on('ReceiveMessage', (message: Message) => {
     useChatStore.getState().addMessage(message);
   });
@@ -111,7 +119,7 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
     useWorkspaceStore.getState().updateMemberProfile(user);
   });
 
-  // Workspace real-time event listeners
+  // 2. Workspace real-time event listeners
   hubConnection.on('WorkspaceJoined', (workspace: Workspace) => {
     useWorkspaceStore.getState().addWorkspace(workspace);
     if (hubConnection?.state === signalR.HubConnectionState.Connected) {
@@ -157,6 +165,48 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
     useChatStore.getState().removeJoinRequest(data.requestId);
   });
 
+  // 3. Voice Real-Time & WebRTC Signaling Listeners
+  hubConnection.on('AllVoiceParticipants', (all: Record<number, VoiceParticipant[]>) => {
+    useVoiceStore.getState().setAllVoiceParticipants(all);
+  });
+
+  hubConnection.on('VoiceParticipantsList', async (channelId: number, participants: VoiceParticipant[]) => {
+    useVoiceStore.getState().setParticipants(channelId, participants);
+    useVoiceStore.getState().setConnectionStatus('connected');
+
+    // Initiate WebRTC peer connections with everyone currently in this voice room
+    const currentUserId = useAuthStore.getState().user?.id;
+    for (const p of participants) {
+      if (p.userId !== currentUserId && p.connectionId) {
+        await webrtcService.connectToPeer(p.connectionId, p.userId);
+      }
+    }
+  });
+
+  hubConnection.on('UserJoinedVoice', (participant: VoiceParticipant) => {
+    useVoiceStore.getState().addParticipant(participant);
+  });
+
+  hubConnection.on('UserLeftVoice', (data: VoiceUserLeftNotification) => {
+    useVoiceStore.getState().removeParticipant(data.channelId, data.userId, data.connectionId);
+  });
+
+  hubConnection.on('UserVoiceStateChanged', (data: VoiceStateNotification) => {
+    useVoiceStore.getState().updateParticipantState(data.channelId, data.userId, data.isMuted, data.isDeafened);
+  });
+
+  hubConnection.on('ReceiveVoiceOffer', async (data: VoiceOfferData) => {
+    await webrtcService.handleReceiveOffer(data.senderConnectionId, data.senderUserId, data.sdp);
+  });
+
+  hubConnection.on('ReceiveVoiceAnswer', async (data: VoiceAnswerData) => {
+    await webrtcService.handleReceiveAnswer(data.senderConnectionId, data.sdp);
+  });
+
+  hubConnection.on('ReceiveIceCandidate', async (data: VoiceIceData) => {
+    await webrtcService.handleReceiveIceCandidate(data.senderConnectionId, data.candidate);
+  });
+
   hubConnection.onreconnected(async () => {
     console.log('SignalR reconnected.');
     const channels = useChatStore.getState().channels;
@@ -167,6 +217,12 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
       const activeWsId = useWorkspaceStore.getState().activeWorkspaceId;
       if (activeWsId) {
         await hubConnection.invoke('JoinWorkspace', activeWsId).catch(() => {});
+      }
+      const activeVoiceId = useVoiceStore.getState().activeVoiceChannelId;
+      if (activeVoiceId) {
+        const isMuted = useVoiceStore.getState().isMuted;
+        const isDeafened = useVoiceStore.getState().isDeafened;
+        await hubConnection.invoke('JoinVoiceChannel', activeVoiceId, isMuted, isDeafened).catch(() => {});
       }
     }
   });
@@ -278,3 +334,64 @@ export const sendTyping = async (channelId: number, isTyping: boolean): Promise<
     console.error('Failed to send typing indicator:', err);
   }
 };
+
+// 4. Voice Hub Invocations
+export const joinVoiceChannel = async (
+  channelId: number,
+  isMuted: boolean = false,
+  isDeafened: boolean = false
+): Promise<void> => {
+  if (!hubConnection || hubConnection.state !== signalR.HubConnectionState.Connected) {
+    return;
+  }
+  await hubConnection.invoke('JoinVoiceChannel', channelId, isMuted, isDeafened);
+};
+
+export const leaveVoiceChannel = async (channelId: number): Promise<void> => {
+  if (!hubConnection || hubConnection.state !== signalR.HubConnectionState.Connected) {
+    return;
+  }
+  await hubConnection.invoke('LeaveVoiceChannel', channelId);
+};
+
+export const sendVoiceOffer = async (targetConnectionId: string, sdp: string): Promise<void> => {
+  if (!hubConnection || hubConnection.state !== signalR.HubConnectionState.Connected) {
+    return;
+  }
+  await hubConnection.invoke('SendVoiceOffer', targetConnectionId, sdp);
+};
+
+export const sendVoiceAnswer = async (targetConnectionId: string, sdp: string): Promise<void> => {
+  if (!hubConnection || hubConnection.state !== signalR.HubConnectionState.Connected) {
+    return;
+  }
+  await hubConnection.invoke('SendVoiceAnswer', targetConnectionId, sdp);
+};
+
+export const sendIceCandidate = async (targetConnectionId: string, candidate: any): Promise<void> => {
+  if (!hubConnection || hubConnection.state !== signalR.HubConnectionState.Connected) {
+    return;
+  }
+  await hubConnection.invoke('SendIceCandidate', targetConnectionId, candidate);
+};
+
+export const toggleVoiceState = async (channelId: number, isMuted: boolean, isDeafened: boolean): Promise<void> => {
+  if (!hubConnection || hubConnection.state !== signalR.HubConnectionState.Connected) {
+    return;
+  }
+  await hubConnection.invoke('ToggleVoiceState', channelId, isMuted, isDeafened);
+};
+
+// Wire signaling handlers to WebRTC service
+webrtcService.setSignalingHandlers({
+  sendOffer: sendVoiceOffer,
+  sendAnswer: sendVoiceAnswer,
+  sendCandidate: sendIceCandidate,
+  onSpeakingChange: (userId, isSpeaking) => {
+    useVoiceStore.getState().setSpeaking(userId, isSpeaking);
+  },
+  onConnectionStatusChange: (status) => {
+    useVoiceStore.getState().setConnectionStatus(status);
+  },
+  getCurrentUserId: () => useAuthStore.getState().user?.id,
+});

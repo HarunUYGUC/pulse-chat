@@ -17,6 +17,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // 2. Application Services
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddSingleton<PresenceTracker>();
+builder.Services.AddSingleton<VoiceTracker>();
 
 // 3. SignalR
 builder.Services.AddSignalR(options =>
@@ -104,6 +105,7 @@ using (var scope = app.Services.CreateScope())
     EnsureColumnExists(db, "Channels", "OwnerId", "INTEGER NULL");
     EnsureColumnExists(db, "Channels", "IsPrivate", "INTEGER NOT NULL DEFAULT 0");
     EnsureColumnExists(db, "Channels", "IsProtected", "INTEGER NOT NULL DEFAULT 0");
+    EnsureColumnExists(db, "Channels", "Type", "TEXT NOT NULL DEFAULT 'text'");
     EnsureColumnExists(db, "ChannelMembers", "LastReadMessageId", "INTEGER NULL");
     EnsureColumnExists(db, "ChannelMembers", "LastReadAt", "TEXT NULL");
 

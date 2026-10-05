@@ -17,11 +17,13 @@ public class ChatHub : Hub
 {
     private readonly AppDbContext _db;
     private readonly PresenceTracker _presenceTracker;
+    private readonly VoiceTracker _voiceTracker;
 
-    public ChatHub(AppDbContext db, PresenceTracker presenceTracker)
+    public ChatHub(AppDbContext db, PresenceTracker presenceTracker, VoiceTracker voiceTracker)
     {
         _db = db;
         _presenceTracker = presenceTracker;
+        _voiceTracker = voiceTracker;
     }
 
     public override async Task OnConnectedAsync()
@@ -40,6 +42,10 @@ public class ChatHub : Hub
             var currentOnline = await _presenceTracker.GetOnlineUsers();
             await Clients.Caller.SendAsync("GetOnlineUsers", currentOnline);
         }
+
+        // Send current voice room active participants to caller
+        var allVoiceParticipants = _voiceTracker.GetAllParticipants();
+        await Clients.Caller.SendAsync("AllVoiceParticipants", allVoiceParticipants);
 
         // Automatically subscribe user's connection to their workspaces, public channels, and personal DMs
         // This ensures unread badges and workspace events light up in real time!
@@ -87,6 +93,25 @@ public class ChatHub : Hub
             if (isCompletelyOffline)
             {
                 await Clients.Others.SendAsync("UserWentOffline", username);
+            }
+        }
+
+        // Clean up voice participant if connection was in a voice channel
+        var voiceRemoval = _voiceTracker.RemoveUser(Context.ConnectionId);
+        if (voiceRemoval.HasValue)
+        {
+            var (channelId, removedParticipant) = voiceRemoval.Value;
+            var payload = new
+            {
+                channelId = channelId,
+                userId = removedParticipant.UserId,
+                connectionId = Context.ConnectionId
+            };
+
+            await Clients.Group($"voice-channel-{channelId}").SendAsync("UserLeftVoice", payload);
+            if (removedParticipant.WorkspaceId.HasValue)
+            {
+                await Clients.Group($"workspace-{removedParticipant.WorkspaceId.Value}").SendAsync("UserLeftVoice", payload);
             }
         }
 
@@ -245,4 +270,151 @@ public class ChatHub : Hub
 
         await Clients.OthersInGroup($"channel-{channelId}").SendAsync("UserTyping", notification);
     }
+
+    #region Voice Signaling & Real-Time Methods
+
+    public async Task JoinVoiceChannel(int channelId, bool isMuted = false, bool isDeafened = false)
+    {
+        var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdClaim, out var userId))
+            return;
+
+        var username = Context.User?.Identity?.Name ?? "User";
+        var user = await _db.Users.FindAsync(userId);
+        var channel = await _db.Channels.FindAsync(channelId);
+        if (channel == null)
+            return;
+
+        var participant = new VoiceParticipantDto
+        {
+            UserId = userId,
+            Username = username,
+            AvatarUrl = user?.AvatarUrl,
+            ConnectionId = Context.ConnectionId,
+            ChannelId = channelId,
+            WorkspaceId = channel.WorkspaceId,
+            IsMuted = isMuted,
+            IsDeafened = isDeafened,
+            JoinedAt = DateTime.UtcNow
+        };
+
+        var (currentList, previousChannelId) = _voiceTracker.AddUser(channelId, participant);
+
+        // If user was in a different channel before, notify left old room
+        if (previousChannelId.HasValue && previousChannelId.Value != channelId)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"voice-channel-{previousChannelId.Value}");
+            var leftPayload = new
+            {
+                channelId = previousChannelId.Value,
+                userId = userId,
+                connectionId = Context.ConnectionId
+            };
+            await Clients.Group($"voice-channel-{previousChannelId.Value}").SendAsync("UserLeftVoice", leftPayload);
+            if (channel.WorkspaceId.HasValue)
+            {
+                await Clients.Group($"workspace-{channel.WorkspaceId.Value}").SendAsync("UserLeftVoice", leftPayload);
+            }
+        }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"voice-channel-{channelId}");
+
+        // 1. Send caller the full list of existing participants currently in this voice room
+        await Clients.Caller.SendAsync("VoiceParticipantsList", channelId, currentList);
+
+        // 2. Notify other participants in the voice room and workspace
+        await Clients.OthersInGroup($"voice-channel-{channelId}").SendAsync("UserJoinedVoice", participant);
+        if (channel.WorkspaceId.HasValue)
+        {
+            await Clients.OthersInGroup($"workspace-{channel.WorkspaceId.Value}").SendAsync("UserJoinedVoice", participant);
+        }
+    }
+
+    public async Task LeaveVoiceChannel(int channelId)
+    {
+        var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        int.TryParse(userIdClaim, out var userId);
+
+        _voiceTracker.RemoveUser(Context.ConnectionId);
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"voice-channel-{channelId}");
+
+        var channel = await _db.Channels.FindAsync(channelId);
+        var payload = new
+        {
+            channelId = channelId,
+            userId = userId,
+            connectionId = Context.ConnectionId
+        };
+
+        await Clients.Group($"voice-channel-{channelId}").SendAsync("UserLeftVoice", payload);
+        if (channel?.WorkspaceId.HasValue == true)
+        {
+            await Clients.Group($"workspace-{channel.WorkspaceId.Value}").SendAsync("UserLeftVoice", payload);
+        }
+    }
+
+    public async Task SendVoiceOffer(string targetConnectionId, string sdp)
+    {
+        var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        int.TryParse(userIdClaim, out var userId);
+        var username = Context.User?.Identity?.Name ?? "";
+
+        await Clients.Client(targetConnectionId).SendAsync("ReceiveVoiceOffer", new
+        {
+            senderConnectionId = Context.ConnectionId,
+            senderUserId = userId,
+            senderUsername = username,
+            sdp = sdp
+        });
+    }
+
+    public async Task SendVoiceAnswer(string targetConnectionId, string sdp)
+    {
+        var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        int.TryParse(userIdClaim, out var userId);
+        var username = Context.User?.Identity?.Name ?? "";
+
+        await Clients.Client(targetConnectionId).SendAsync("ReceiveVoiceAnswer", new
+        {
+            senderConnectionId = Context.ConnectionId,
+            senderUserId = userId,
+            senderUsername = username,
+            sdp = sdp
+        });
+    }
+
+    public async Task SendIceCandidate(string targetConnectionId, object candidate)
+    {
+        await Clients.Client(targetConnectionId).SendAsync("ReceiveIceCandidate", new
+        {
+            senderConnectionId = Context.ConnectionId,
+            candidate = candidate
+        });
+    }
+
+    public async Task ToggleVoiceState(int channelId, bool isMuted, bool isDeafened)
+    {
+        var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        int.TryParse(userIdClaim, out var userId);
+
+        _voiceTracker.UpdateState(Context.ConnectionId, isMuted, isDeafened);
+
+        var channel = await _db.Channels.FindAsync(channelId);
+        var payload = new
+        {
+            channelId = channelId,
+            userId = userId,
+            connectionId = Context.ConnectionId,
+            isMuted = isMuted,
+            isDeafened = isDeafened
+        };
+
+        await Clients.Group($"voice-channel-{channelId}").SendAsync("UserVoiceStateChanged", payload);
+        if (channel?.WorkspaceId.HasValue == true)
+        {
+            await Clients.Group($"workspace-{channel.WorkspaceId.Value}").SendAsync("UserVoiceStateChanged", payload);
+        }
+    }
+
+    #endregion
 }

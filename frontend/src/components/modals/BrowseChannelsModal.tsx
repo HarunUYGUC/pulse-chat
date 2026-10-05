@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Hash, Lock, Search, X, Users, Check, Shield } from 'lucide-react';
+import { Hash, Lock, Search, X, Users, Check, Shield, Volume2 } from 'lucide-react';
 import api from '../../services/api';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
@@ -180,7 +180,24 @@ export const BrowseChannelsModal: React.FC<BrowseChannelsModalProps> = ({
                     >
                       <div className="pe-1 flex-grow-1" style={{ minWidth: 0, overflow: 'hidden' }}>
                         <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
-                          {channel.isPrivate ? (
+                          {channel.type === 'voice' ? (
+                            channel.isPrivate ? (
+                              <span
+                                className="position-relative d-inline-flex align-items-center justify-content-center flex-shrink-0"
+                                style={{ width: '16px', height: '16px' }}
+                                title="Private Voice Channel"
+                              >
+                                <Volume2 size={16} className="text-success" />
+                                <Lock
+                                  size={9}
+                                  className="position-absolute text-warning"
+                                  style={{ bottom: '-2px', right: '-3px', strokeWidth: 2.8 }}
+                                />
+                              </span>
+                            ) : (
+                              <Volume2 size={16} className="text-success flex-shrink-0" />
+                            )
+                          ) : channel.isPrivate ? (
                             <Lock size={16} className="text-warning flex-shrink-0" />
                           ) : (
                             <Hash size={16} className="text-secondary flex-shrink-0" />

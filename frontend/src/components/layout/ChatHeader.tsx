@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   UserPlus,
   Edit3,
+  Volume2,
 } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
@@ -104,6 +105,23 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         <div className="d-flex align-items-center gap-2 min-width-0">
           {isDm ? (
             <AtSign size={20} className="text-secondary flex-shrink-0" />
+          ) : activeChannel.type === 'voice' ? (
+            isPrivate ? (
+              <span
+                className="position-relative d-inline-flex align-items-center justify-content-center flex-shrink-0"
+                style={{ width: '20px', height: '20px' }}
+                title="Private Voice Channel"
+              >
+                <Volume2 size={20} className="text-secondary" />
+                <Lock
+                  size={11}
+                  className="position-absolute text-warning"
+                  style={{ bottom: '-2px', right: '-4px', strokeWidth: 2.8 }}
+                />
+              </span>
+            ) : (
+              <Volume2 size={20} className="text-secondary flex-shrink-0" />
+            )
           ) : isPrivate ? (
             <Lock size={20} className="text-warning flex-shrink-0" />
           ) : (

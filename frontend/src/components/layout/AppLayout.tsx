@@ -6,6 +6,7 @@ import { MembersSidebar } from './MembersSidebar';
 import { MessageList } from '../chat/MessageList';
 import { MessageInput } from '../chat/MessageInput';
 import { TypingIndicator } from '../chat/TypingIndicator';
+import { VoiceStage } from '../voice/VoiceStage';
 import { WorkspaceActionModal } from '../modals/WorkspaceActionModal';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
@@ -122,21 +123,25 @@ export const AppLayout: React.FC = () => {
             />
 
             {activeChannel ? (
-              <>
-                <MessageList
-                  channelId={activeChannel.id}
-                  channelName={displayName}
-                  isDm={isDm}
-                />
+              activeChannel.type === 'voice' ? (
+                <VoiceStage channel={activeChannel} />
+              ) : (
+                <>
+                  <MessageList
+                    channelId={activeChannel.id}
+                    channelName={displayName}
+                    isDm={isDm}
+                  />
 
-                <TypingIndicator />
+                  <TypingIndicator />
 
-                <MessageInput
-                  channelId={activeChannel.id}
-                  channelName={displayName}
-                  isDm={isDm}
-                />
-              </>
+                  <MessageInput
+                    channelId={activeChannel.id}
+                    channelName={displayName}
+                    isDm={isDm}
+                  />
+                </>
+              )
             ) : (
               <div className="d-flex align-items-center justify-content-center h-100 text-secondary">
                 <div className="text-center">

@@ -178,6 +178,7 @@ public class ChannelsController : ControllerBase
             Id = c.Id,
             Name = c.Name,
             Description = c.Description,
+            Type = c.Type ?? "text",
             WorkspaceId = c.WorkspaceId,
             IsPrivate = c.IsPrivate,
             IsProtected = c.IsProtected,
@@ -245,11 +246,14 @@ public class ChannelsController : ControllerBase
             return BadRequest(new { message = $"Channel #{normalizedName} already exists in this workspace." });
         }
 
+        var channelType = dto.Type?.ToLowerInvariant() == "voice" ? "voice" : "text";
+
         var channel = new Channel
         {
             Name = normalizedName,
             Description = dto.Description?.Trim(),
             WorkspaceId = targetWorkspaceId,
+            Type = channelType,
             IsDirectMessage = false,
             IsPrivate = dto.IsPrivate,
             IsProtected = false,
@@ -1039,6 +1043,7 @@ public class ChannelsController : ControllerBase
             Id = channel.Id,
             Name = displayName,
             Description = channel.Description,
+            Type = channel.Type ?? "text",
             WorkspaceId = channel.WorkspaceId,
             IsDirectMessage = channel.IsDirectMessage,
             IsPrivate = channel.IsPrivate,

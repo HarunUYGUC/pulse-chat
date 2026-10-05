@@ -138,9 +138,22 @@ public class AppDbContext : DbContext
                 WorkspaceId = 1,
                 Name = "general",
                 Description = "General discussion for this workspace",
+                Type = "text",
                 IsDirectMessage = false,
                 IsPrivate = false,
                 IsProtected = true,
+                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new Channel
+            {
+                Id = 2,
+                WorkspaceId = 1,
+                Name = "Genel Ses",
+                Description = "Default voice lounge for team discussions and hangouts.",
+                Type = "voice",
+                IsDirectMessage = false,
+                IsPrivate = false,
+                IsProtected = false,
                 CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             }
         );

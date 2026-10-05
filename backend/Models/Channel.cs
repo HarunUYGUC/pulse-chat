@@ -11,6 +11,7 @@ public class Channel
     public bool IsDirectMessage { get; set; } = false;
     public bool IsPrivate { get; set; } = false;
     public bool IsProtected { get; set; } = false; // Protected channels cannot be deleted (e.g. #general)
+    public string Type { get; set; } = "text"; // "text" or "voice"
 
     public int? OwnerId { get; set; }
     public User? Owner { get; set; }

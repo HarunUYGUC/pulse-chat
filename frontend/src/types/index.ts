@@ -25,6 +25,7 @@ export interface Channel {
   id: number;
   name: string;
   description?: string;
+  type?: 'text' | 'voice';
   workspaceId?: number;
   isDirectMessage: boolean;
   IsDirectMessage?: boolean;
@@ -44,6 +45,7 @@ export interface BrowseChannel {
   id: number;
   name: string;
   description?: string;
+  type?: 'text' | 'voice';
   workspaceId?: number;
   isPrivate: boolean;
   isProtected: boolean;
@@ -151,4 +153,50 @@ export interface UpdateProfileData {
   currentPassword?: string;
   newPassword?: string;
 }
+
+export interface VoiceParticipant {
+  userId: number;
+  username: string;
+  avatarUrl?: string;
+  connectionId: string;
+  channelId: number;
+  workspaceId?: number;
+  isMuted: boolean;
+  isDeafened: boolean;
+  joinedAt: string;
+}
+
+export interface VoiceOfferData {
+  senderConnectionId: string;
+  senderUserId: number;
+  senderUsername: string;
+  sdp: string;
+}
+
+export interface VoiceAnswerData {
+  senderConnectionId: string;
+  senderUserId: number;
+  senderUsername: string;
+  sdp: string;
+}
+
+export interface VoiceIceData {
+  senderConnectionId: string;
+  candidate: RTCIceCandidateInit;
+}
+
+export interface VoiceStateNotification {
+  channelId: number;
+  userId: number;
+  connectionId: string;
+  isMuted: boolean;
+  isDeafened: boolean;
+}
+
+export interface VoiceUserLeftNotification {
+  channelId: number;
+  userId: number;
+  connectionId: string;
+}
+
 

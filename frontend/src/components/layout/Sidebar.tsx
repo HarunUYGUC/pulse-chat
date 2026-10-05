@@ -9,19 +9,26 @@ import {
   ChevronDown,
   Trash2,
   Settings,
+  Volume2,
+  MicOff,
+  VolumeX,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useChatStore } from '../../store/chatStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import { useVoiceStore } from '../../store/voiceStore';
 import { CreateChannelModal } from '../modals/CreateChannelModal';
 import { NewDmModal } from '../modals/NewDmModal';
 import { BrowseChannelsModal } from '../modals/BrowseChannelsModal';
 import { WorkspaceInviteModal } from '../modals/WorkspaceInviteModal';
 import { DeleteWorkspaceModal } from '../modals/DeleteWorkspaceModal';
 import { ProfileSettingsModal } from '../modals/ProfileSettingsModal';
+import { VoiceControlBar } from '../voice/VoiceControlBar';
+import { VoiceSettingsModal } from '../voice/VoiceSettingsModal';
 
 export const Sidebar: React.FC = () => {
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
+  const [channelModalType, setChannelModalType] = useState<'text' | 'voice'>('text');
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
   const [isBrowseModalOpen, setIsBrowseModalOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -40,6 +47,14 @@ export const Sidebar: React.FC = () => {
     onlineUsers,
   } = useChatStore();
   const { workspaces, activeWorkspaceId, leaveWorkspace } = useWorkspaceStore();
+  const {
+    activeVoiceChannelId,
+    voiceParticipants,
+    speakingUsers,
+    joinVoice,
+    isMuted,
+    isDeafened,
+  } = useVoiceStore();
 
   const activeWorkspace = workspaces.find((w) => Number(w.id) === Number(activeWorkspaceId));
   const isOwner = Boolean(activeWorkspace && user && activeWorkspace.ownerId === user.id);
@@ -60,7 +75,12 @@ export const Sidebar: React.FC = () => {
     };
   }, [isWsMenuOpen]);
 
-  const textChannels = channels.filter((c) => !c.IsDirectMessage && !c.isDirectMessage);
+  const textChannels = channels.filter(
+    (c) => !c.IsDirectMessage && !c.isDirectMessage && c.type !== 'voice'
+  );
+  const voiceChannels = channels.filter(
+    (c) => !c.IsDirectMessage && !c.isDirectMessage && c.type === 'voice'
+  );
   const dmChannels = channels.filter((c) => c.IsDirectMessage || c.isDirectMessage);
 
   return (
@@ -170,9 +190,9 @@ export const Sidebar: React.FC = () => {
 
         {/* Scrollable Navigation Sections */}
         <div className="sidebar-content">
-          {/* Channels Header & List */}
+          {/* Text Channels Header & List */}
           <div className="sidebar-section-title">
-            <span>Channels</span>
+            <span>Text Channels</span>
             <div className="d-flex align-items-center gap-1">
               <button
                 type="button"
@@ -185,8 +205,11 @@ export const Sidebar: React.FC = () => {
               <button
                 type="button"
                 className="btn btn-sm btn-link p-0 text-secondary"
-                title="Create Channel"
-                onClick={() => setIsChannelModalOpen(true)}
+                title="Create Text Channel"
+                onClick={() => {
+                  setChannelModalType('text');
+                  setIsChannelModalOpen(true);
+                }}
               >
                 <Plus size={16} />
               </button>
@@ -199,7 +222,7 @@ export const Sidebar: React.FC = () => {
                 className="text-secondary small px-2 py-1"
                 style={{ fontSize: '0.8rem', fontStyle: 'italic' }}
               >
-                No channels in this workspace yet.
+                No text channels in this workspace yet.
               </div>
             ) : (
               textChannels.map((channel) => {
@@ -230,6 +253,140 @@ export const Sidebar: React.FC = () => {
                       {channel.name}
                     </span>
                     {unread > 0 && <span className="pc-badge-unread">{unread}</span>}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Voice Channels Header & List */}
+          <div className="sidebar-section-title">
+            <span>Voice Channels</span>
+            <button
+              type="button"
+              className="btn btn-sm btn-link p-0 text-secondary"
+              title="Create Voice Channel"
+              onClick={() => {
+                setChannelModalType('voice');
+                setIsChannelModalOpen(true);
+              }}
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+
+          <div className="mb-3">
+            {voiceChannels.length === 0 ? (
+              <div
+                className="text-secondary small px-2 py-1"
+                style={{ fontSize: '0.8rem', fontStyle: 'italic' }}
+              >
+                No voice channels yet.
+              </div>
+            ) : (
+              voiceChannels.map((channel) => {
+                const isActive = activeChannelId === channel.id;
+                const isConnected = activeVoiceChannelId === channel.id;
+                const isPrivate = Boolean(channel.isPrivate);
+                const participants = voiceParticipants[channel.id] || [];
+
+                return (
+                  <div key={channel.id} className="mb-1">
+                    <div
+                      className={`sidebar-item ${isActive ? 'active' : ''} ${isConnected ? 'text-success' : ''}`}
+                      onClick={() => {
+                        setActiveChannel(channel.id);
+                        if (!isConnected) {
+                          joinVoice(channel.id);
+                        }
+                      }}
+                      title="Click to switch/join voice channel"
+                    >
+                      {isPrivate ? (
+                        <span
+                          className="position-relative d-inline-flex align-items-center justify-content-center me-1 flex-shrink-0"
+                          style={{ width: '18px', height: '18px' }}
+                          title="Private Voice Channel"
+                        >
+                          <Volume2
+                            size={17}
+                            className={`channel-icon ${isConnected ? 'text-success' : isActive ? 'text-white' : 'text-secondary'
+                              }`}
+                          />
+                          <Lock
+                            size={9}
+                            className="position-absolute text-warning"
+                            style={{ bottom: '-1px', right: '-3px', strokeWidth: 2.8 }}
+                          />
+                        </span>
+                      ) : (
+                        <Volume2
+                          size={18}
+                          className={`channel-icon flex-shrink-0 ${isConnected ? 'text-success' : isActive ? 'text-white' : 'text-secondary'
+                            }`}
+                        />
+                      )}
+                      <span className={`flex-grow-1 text-truncate small ${isConnected ? 'fw-bold text-success' : ''}`}>
+                        {channel.name}
+                      </span>
+                    </div>
+
+                    {/* Active Voice Participants list under channel */}
+                    {participants.length > 0 && (
+                      <div className="ps-4 pe-2 py-1">
+                        {participants.map((p) => {
+                          const isSpeaking = speakingUsers.includes(p.userId);
+                          const isSelf = p.userId === user?.id;
+                          const effectiveMuted = isSelf ? isMuted : p.isMuted;
+                          const effectiveDeafened = isSelf ? isDeafened : p.isDeafened;
+
+                          return (
+                            <div
+                              key={p.connectionId || p.userId}
+                              className="d-flex align-items-center justify-content-between py-1 px-2 rounded mb-1"
+                              style={{
+                                backgroundColor: isSpeaking ? 'rgba(35, 165, 90, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                                transition: 'background-color 0.12s ease',
+                              }}
+                            >
+                              <div className="d-flex align-items-center gap-2 text-truncate" style={{ minWidth: 0 }}>
+                                <img
+                                  src={
+                                    p.avatarUrl ||
+                                    `https://api.dicebear.com/7.x/initials/svg?seed=${p.username}&backgroundColor=5865f2`
+                                  }
+                                  alt={p.username}
+                                  className="rounded-circle"
+                                  style={{
+                                    width: '20px',
+                                    height: '20px',
+                                    objectFit: 'cover',
+                                    border: isSpeaking ? '2px solid #23a55a' : '2px solid transparent',
+                                    boxShadow: isSpeaking ? '0 0 8px #23a55a' : 'none',
+                                    transition: 'all 0.12s ease',
+                                  }}
+                                />
+                                <span
+                                  className="small text-truncate"
+                                  style={{
+                                    fontSize: '0.78rem',
+                                    color: isSpeaking ? '#23a55a' : '#b5bac1',
+                                    fontWeight: isSpeaking ? 600 : 400,
+                                  }}
+                                >
+                                  {p.username}
+                                </span>
+                              </div>
+
+                              <div className="d-flex align-items-center gap-1 flex-shrink-0">
+                                {effectiveMuted && <MicOff size={13} className="text-danger" />}
+                                {effectiveDeafened && <VolumeX size={13} className="text-danger" />}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })
@@ -286,9 +443,8 @@ export const Sidebar: React.FC = () => {
                         style={{ width: '22px', height: '22px', objectFit: 'cover' }}
                       />
                       <span
-                        className={`status-indicator ${
-                          isOnline ? 'status-online' : 'status-offline'
-                        }`}
+                        className={`status-indicator ${isOnline ? 'status-online' : 'status-offline'
+                          }`}
                         style={{ width: '8px', height: '8px', borderWidth: '1.5px' }}
                       />
                     </div>
@@ -302,6 +458,9 @@ export const Sidebar: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Discord-style Persistent Bottom Voice Bar (when connected to voice) */}
+        <VoiceControlBar />
 
         {/* User Status Bar Footer */}
         <div className="sidebar-footer">
@@ -360,6 +519,7 @@ export const Sidebar: React.FC = () => {
       <CreateChannelModal
         isOpen={isChannelModalOpen}
         onClose={() => setIsChannelModalOpen(false)}
+        defaultChannelType={channelModalType}
       />
       <NewDmModal
         isOpen={isDmModalOpen}
@@ -382,6 +542,7 @@ export const Sidebar: React.FC = () => {
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
       />
+      <VoiceSettingsModal />
     </>
   );
 };

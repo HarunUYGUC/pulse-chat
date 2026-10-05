@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Hash, Lock, X, Check } from 'lucide-react';
+import { Hash, Lock, X, Check, Volume2 } from 'lucide-react';
 import api from '../../services/api';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
@@ -9,11 +9,17 @@ import { Channel } from '../../types';
 interface CreateChannelModalProps {
   isOpen: boolean;
   onClose: () => void;
+  defaultChannelType?: 'text' | 'voice';
 }
 
-export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, onClose }) => {
+export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
+  isOpen,
+  onClose,
+  defaultChannelType = 'text',
+}) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [channelType, setChannelType] = useState<'text' | 'voice'>(defaultChannelType);
   const [isPrivate, setIsPrivate] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -28,11 +34,12 @@ export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, 
       fetchUsers(activeWorkspaceId ?? undefined);
       setName('');
       setDescription('');
+      setChannelType(defaultChannelType);
       setIsPrivate(false);
       setSelectedUserIds([]);
       setError(null);
     }
-  }, [isOpen, fetchUsers, activeWorkspaceId]);
+  }, [isOpen, fetchUsers, activeWorkspaceId, defaultChannelType]);
 
   if (!isOpen) return null;
 
@@ -57,6 +64,7 @@ export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, 
       const response = await api.post<Channel>('/channels', {
         name: formattedName,
         description: description.trim() || undefined,
+        type: channelType,
         workspaceId: activeWorkspaceId ?? undefined,
         isPrivate,
         initialMemberIds: isPrivate ? selectedUserIds : undefined,
@@ -64,10 +72,6 @@ export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, 
 
       addChannel(response.data);
       setActiveChannel(response.data.id);
-      setName('');
-      setDescription('');
-      setIsPrivate(false);
-      setSelectedUserIds([]);
       onClose();
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { message?: string } } };
@@ -92,7 +96,24 @@ export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, 
             style={{ borderColor: 'var(--pc-border)' }}
           >
             <div className="d-flex align-items-center gap-2">
-              {isPrivate ? (
+              {channelType === 'voice' ? (
+                isPrivate ? (
+                  <span
+                    className="position-relative d-inline-flex align-items-center justify-content-center flex-shrink-0"
+                    style={{ width: '20px', height: '20px' }}
+                    title="Private Voice Channel"
+                  >
+                    <Volume2 size={20} className="text-success" />
+                    <Lock
+                      size={11}
+                      className="position-absolute text-warning"
+                      style={{ bottom: '-2px', right: '-4px', strokeWidth: 2.8 }}
+                    />
+                  </span>
+                ) : (
+                  <Volume2 size={20} className="text-success" />
+                )
+              ) : isPrivate ? (
                 <Lock size={20} className="text-warning" />
               ) : (
                 <Hash size={20} className="text-primary" />
@@ -131,18 +152,107 @@ export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, 
                 </div>
               )}
 
+              {/* Channel Type Selector (Text vs Voice) */}
+              <div className="mb-3">
+                <label className="pc-form-label">CHANNEL TYPE</label>
+                <div className="d-flex flex-column gap-2">
+                  {/* Text Channel Option */}
+                  <div
+                    className="p-2 rounded d-flex align-items-center justify-content-between"
+                    style={{
+                      backgroundColor: channelType === 'text' ? 'rgba(88, 101, 242, 0.15)' : '#1e1f22',
+                      border: channelType === 'text' ? '1px solid var(--pc-primary)' : '1px solid #383a40',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                    onClick={() => setChannelType('text')}
+                  >
+                    <div className="d-flex align-items-center gap-3">
+                      <Hash size={22} className={channelType === 'text' ? 'text-primary' : 'text-secondary'} />
+                      <div>
+                        <div className="fw-semibold text-white small">Text Channel</div>
+                        <div style={{ fontSize: '0.75rem', color: '#949ba4' }}>
+                          Post messages, images, files, and emojis
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      className="rounded-circle d-flex align-items-center justify-content-center"
+                      style={{
+                        width: '18px',
+                        height: '18px',
+                        border: channelType === 'text' ? '5px solid var(--pc-primary)' : '2px solid #4e5058',
+                        backgroundColor: '#fff',
+                      }}
+                    />
+                  </div>
+
+                  {/* Voice Channel Option */}
+                  <div
+                    className="p-2 rounded d-flex align-items-center justify-content-between"
+                    style={{
+                      backgroundColor: channelType === 'voice' ? 'rgba(35, 165, 90, 0.15)' : '#1e1f22',
+                      border: channelType === 'voice' ? '1px solid #23a55a' : '1px solid #383a40',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                    onClick={() => setChannelType('voice')}
+                  >
+                    <div className="d-flex align-items-center gap-3">
+                      <Volume2 size={22} className={channelType === 'voice' ? 'text-success' : 'text-secondary'} />
+                      <div>
+                        <div className="fw-semibold text-white small">Voice Channel</div>
+                        <div style={{ fontSize: '0.75rem', color: '#949ba4' }}>
+                          Hang out together with real-time voice and audio
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      className="rounded-circle d-flex align-items-center justify-content-center"
+                      style={{
+                        width: '18px',
+                        height: '18px',
+                        border: channelType === 'voice' ? '5px solid #23a55a' : '2px solid #4e5058',
+                        backgroundColor: '#fff',
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Channel Name */}
               <div className="mb-3">
                 <label className="pc-form-label">
-                  Channel Name
+                  CHANNEL NAME
                 </label>
                 <div className="pc-search-box">
                   <span className="pc-search-icon fw-bold fs-6" style={{ minWidth: '16px', textAlign: 'center' }}>
-                    {isPrivate ? <Lock size={15} className="text-warning" /> : '#'}
+                    {channelType === 'voice' ? (
+                      isPrivate ? (
+                        <span
+                          className="position-relative d-inline-flex align-items-center justify-content-center"
+                          style={{ width: '16px', height: '16px' }}
+                          title="Private Voice Channel"
+                        >
+                          <Volume2 size={16} className="text-success" />
+                          <Lock
+                            size={9}
+                            className="position-absolute text-warning"
+                            style={{ bottom: '-2px', right: '-3px', strokeWidth: 2.8 }}
+                          />
+                        </span>
+                      ) : (
+                        <Volume2 size={16} className="text-success" />
+                      )
+                    ) : isPrivate ? (
+                      <Lock size={15} className="text-warning" />
+                    ) : (
+                      <Hash size={16} className="text-secondary" />
+                    )}
                   </span>
                   <input
                     type="text"
-                    placeholder="e.g. project-x, marketing"
+                    placeholder={channelType === 'voice' ? 'e.g. general-voice, lounge' : 'e.g. project-x, marketing'}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     autoFocus
@@ -244,6 +354,7 @@ export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, 
                                   backgroundColor: isSelected ? 'var(--pc-primary)' : '#1e1f22',
                                   border: '1px solid #4e5058',
                                   color: '#fff',
+                                  fontSize: '10px',
                                 }}
                               >
                                 {isSelected && <Check size={12} />}

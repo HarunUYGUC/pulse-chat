@@ -177,11 +177,12 @@ public class WorkspacesController : ControllerBase
             JoinedAt = DateTime.UtcNow
         });
 
-        // 2. Automatically create default #general channel for this workspace
+        // 2. Automatically create default #general (text) and Genel Ses (voice) channels for this workspace
         var generalChannel = new Channel
         {
             Name = "general",
             Description = "General discussion for this workspace",
+            Type = "text",
             WorkspaceId = workspace.Id,
             IsDirectMessage = false,
             IsPrivate = false,
@@ -190,13 +191,34 @@ public class WorkspacesController : ControllerBase
             CreatedAt = DateTime.UtcNow
         };
 
+        var voiceChannel = new Channel
+        {
+            Name = "Genel Ses",
+            Description = "Default voice lounge for team discussions and hangouts.",
+            Type = "voice",
+            WorkspaceId = workspace.Id,
+            IsDirectMessage = false,
+            IsPrivate = false,
+            IsProtected = false,
+            OwnerId = null,
+            CreatedAt = DateTime.UtcNow
+        };
+
         _db.Channels.Add(generalChannel);
+        _db.Channels.Add(voiceChannel);
         await _db.SaveChangesAsync();
 
-        // 3. Add creator to #general channel
+        // 3. Add creator to default channels
         _db.ChannelMembers.Add(new ChannelMember
         {
             ChannelId = generalChannel.Id,
+            UserId = currentUserId,
+            JoinedAt = DateTime.UtcNow
+        });
+
+        _db.ChannelMembers.Add(new ChannelMember
+        {
+            ChannelId = voiceChannel.Id,
             UserId = currentUserId,
             JoinedAt = DateTime.UtcNow
         });

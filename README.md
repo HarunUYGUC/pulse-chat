@@ -1,6 +1,6 @@
 # PulseChat — Real-Time Chat & Collaboration Platform
 
-PulseChat is a production-grade, full-stack real-time messaging and collaboration platform (Slack / Discord inspired) built with **React 18/19 (TypeScript) + Bootstrap 5** on the frontend, **ASP.NET Core 9 Web API + SignalR** on the backend, and a cross-platform mobile client built with **React Native + Expo**.
+PulseChat is a production-grade, full-stack real-time messaging and collaboration platform (Slack / Discord inspired) built with **React 18/19 (TypeScript) + Bootstrap 5** on the frontend, **ASP.NET Core 9 Web API + SignalR** on the backend, **WebRTC P2P Mesh Audio** for low-latency voice communications, and a cross-platform mobile client built with **React Native + Expo**.
 
 ---
 
@@ -13,6 +13,16 @@ PulseChat is a production-grade, full-stack real-time messaging and collaboratio
 - **Workspace Management**: Workspace owners can edit descriptions or delete the workspace with safety confirmation dialogs.
 - **Member Count & Presence Sync**: Live workspace member counters and real-time membership synchronization across devices.
 
+### 🎙️ Real-Time Voice Chat (Discord-Style WebRTC Mesh)
+- **Dedicated Voice Channels**: Seamlessly switch between text channels (`#`) and voice channels (`🔊`).
+- **Private Voice Rooms**: Protected voice channels (`🔊🔒`) restricted to invited workspace members with distinct lock badges across the sidebar, header, and stage.
+- **Zero-Server-Cost P2P Mesh Audio**: Peer-to-peer audio streaming via browser WebRTC (`RTCPeerConnection` with Google STUN), mediated by SignalR SDP offer/answer/ICE signaling.
+- **Voice Activity Detection (VAD)**: Real-time audio spectrum analysis via Web Audio API (`AnalyserNode`) that lights up pulsating glowing green border rings (`#23a55a`) around talking participants.
+- **Persistent Bottom Voice Bar**: Discord-style floating control panel docked at the bottom of the sidebar showing connection latency status, active channel name, and quick-toggle controls.
+- **Microphone Mute & Audio Deafen**: Instant mute/unmute and deafen/undeafen toggles with cross-client synchronization and automatic clean state resets on channel leave.
+- **Synthesized Sound Effects**: Built-in Discord-like audio chimes generated purely via the browser's Web Audio API oscillators (no external MP3 downloads required).
+- **Audio Device & Mic Testing Modal**: Select input (microphone) and output (speaker) devices with a live dB volume meter for microphone testing.
+
 ### 🔔 Real-Time Workspace Unread Badges
 - **Capsule Notification Badges**: Distinct red notification capsules (`#ed4245`) showing unread message counts on each workspace icon in the dock.
 - **Smart Formatting**: Displays exact numbers or `99+` overflow with smooth entry animations (`pulseBadgeIn`).
@@ -20,9 +30,9 @@ PulseChat is a production-grade, full-stack real-time messaging and collaboratio
 - **Zero-Lag SignalR Updates**: Workspace unread counts increment instantly as messages arrive in any channel, and decrement as channels are read.
 
 ### 💬 Channels & Direct Messages
-- **Public & Private Channels**: Default public channels (e.g. `#general`) and custom channels with instant broadcast, plus private channels restricted to invited members.
+- **Public & Private Channels**: Default public channels (e.g. `#general`, `🔊 Genel Ses`) and custom channels with instant broadcast, plus private channels restricted to invited members.
 - **1-on-1 Direct Messages**: Direct conversations with dedicated user-to-user routing, auto-naming, and conversation history.
-- **Browse Channels Modal**: Explore, discover, and join open channels within the active workspace.
+- **Browse Channels Modal**: Explore, discover, and join open text and voice channels within the active workspace.
 - **Channel Descriptions**: Informative descriptions displayed directly in the channel header and workspace context.
 
 ### 🛡️ Moderation & Join Request Approval Workflow
@@ -48,6 +58,7 @@ PulseChat is a production-grade, full-stack real-time messaging and collaboratio
 - **JWT Authentication & BCrypt**: Password hashing with BCrypt and JWT Bearer tokens passed via HTTP Authorization headers and WebSocket query strings.
 - **1-Click Quick Demo Accounts**: Instant "Sign in as Alice" and "Sign in as Bob" buttons for rapid multi-user testing.
 - **Self-Hosted Relational Storage**: Entity Framework Core 9 with SQLite (`pulsechat.db`) — zero cloud cost ($0), with automatic migration and seeding.
+- **Graceful Error Boundaries**: React Error Boundary wrappers preventing blank screens and offering 1-click recovery.
 - **Session & Refresh Resilience**: Active workspace, channel, and JWT token state preserved across page refreshes (F5).
 
 ---
@@ -57,14 +68,17 @@ PulseChat is a production-grade, full-stack real-time messaging and collaboratio
 ### Backend
 - **Framework**: ASP.NET Core 9.0 Web API
 - **Real-Time Hub**: Microsoft ASP.NET Core SignalR (`ChatHub`)
+- **Voice In-Memory Engine**: Thread-safe concurrent voice room tracker (`VoiceTracker`)
 - **ORM / Database**: Entity Framework Core 9 with SQLite
 - **Security**: JWT Bearer Authentication (`Microsoft.AspNetCore.Authentication.JwtBearer`), BCrypt (`BCrypt.Net-Next`)
 
 ### Frontend (Web)
 - **Framework**: React 18/19 with TypeScript
 - **Bundler**: Vite
+- **Voice Engine**: WebRTC API (`RTCPeerConnection`, `getUserMedia`, Google STUN)
+- **Audio Processing**: Web Audio API (`AudioContext`, `AnalyserNode` for VAD, sound synthesis)
 - **UI & Styling**: Bootstrap 5.3 + Lucide Icons + Custom Slack/Discord Dark Theme
-- **State Management**: Zustand (`workspaceStore`, `chatStore`, `authStore`)
+- **State Management**: Zustand (`workspaceStore`, `chatStore`, `voiceStore`, `authStore`)
 - **Real-Time Client**: `@microsoft/signalr` with auto-reconnect
 - **HTTP Client**: Axios with JWT request & response interceptors
 
@@ -92,13 +106,13 @@ pulse-chat/
 │   │   └── AppDbContext.cs            # EF Core DbContext with SQLite & seed data
 │   ├── DTOs/
 │   │   ├── AuthDtos.cs                # Auth requests and user profiles
-│   │   ├── ChannelDtos.cs             # Channel summaries, join requests, read markers
+│   │   ├── ChannelDtos.cs             # Channel summaries, voice participants, read markers
 │   │   ├── MessageDtos.cs             # Messages with workspace and reaction metadata
 │   │   └── WorkspaceDtos.cs           # Workspace summaries, members, unread counts
 │   ├── Hubs/
-│   │   └── ChatHub.cs                 # SignalR hub (Broadcasts, Typing, Presence, Workspaces)
+│   │   └── ChatHub.cs                 # SignalR hub (Broadcasts, Typing, Presence, WebRTC Signaling)
 │   ├── Models/
-│   │   ├── Channel.cs                 # Channel entity with workspace foreign key
+│   │   ├── Channel.cs                 # Channel entity with Type (text/voice) & workspace key
 │   │   ├── ChannelJoinRequest.cs      # Pending join requests for moderated channels
 │   │   ├── ChannelKickRecord.cs       # Kick audit logs
 │   │   ├── ChannelMember.cs           # Channel memberships and read markers
@@ -108,8 +122,9 @@ pulse-chat/
 │   │   └── WorkspaceMember.cs         # Workspace membership & role mapping
 │   ├── Services/
 │   │   ├── PresenceTracker.cs         # Thread-safe multi-connection presence mapping
+│   │   ├── VoiceTracker.cs            # In-memory thread-safe room & participant manager
 │   │   └── TokenService.cs            # JWT token generation
-│   ├── Program.cs                     # Startup, CORS, JWT, SignalR routing
+│   ├── Program.cs                     # Startup, CORS, JWT, SignalR routing, Migrations
 │   └── appsettings.json
 │
 ├── frontend/
@@ -117,27 +132,36 @@ pulse-chat/
 │   │   ├── components/
 │   │   │   ├── auth/AuthPage.tsx      # Login, Register & 1-Click Demo login
 │   │   │   ├── chat/                  # MessageList, MessageItem, MessageInput, TypingIndicator
+│   │   │   ├── common/
+│   │   │   │   └── ErrorBoundary.tsx  # React error boundary for unhandled UI exceptions
 │   │   │   ├── layout/
-│   │   │   │   ├── AppLayout.tsx      # Main layout combining sidebars and chat canvas
-│   │   │   │   ├── ChatHeader.tsx     # Channel title, topic, members toggle
+│   │   │   │   ├── AppLayout.tsx      # Main layout switching between Chat and VoiceStage
+│   │   │   │   ├── ChatHeader.tsx     # Channel title, topic, voice badges, members toggle
 │   │   │   │   ├── MembersSidebar.tsx # Online/Offline workspace member roster
-│   │   │   │   ├── Sidebar.tsx        # Channels & Direct Messages sidebar with header menu
+│   │   │   │   ├── Sidebar.tsx        # Text & Voice channels list, DMs, persistent Voice bar
 │   │   │   │   └── WorkspaceSidebar.tsx # Vertical workspace dock with unread badges
-│   │   │   └── modals/
-│   │   │       ├── BrowseChannelsModal.tsx  # Channel discovery and join requests
-│   │   │       ├── CreateChannelModal.tsx  # Public / Private channel creation
-│   │   │       ├── DeleteWorkspaceModal.tsx # Workspace deletion confirmation
-│   │   │       ├── InviteMembersModal.tsx   # Add members to private channels
-│   │   │       ├── NewDmModal.tsx           # Start direct messages
-│   │   │       ├── ProfileSettingsModal.tsx # Profile customization & password change
-│   │   │       ├── WorkspaceActionModal.tsx # Create or join workspace
-│   │   │       └── WorkspaceInviteModal.tsx # View & regenerate workspace invite code
+│   │   │   ├── modals/
+│   │   │   │   ├── BrowseChannelsModal.tsx  # Text & Voice channel discovery
+│   │   │   │   ├── CreateChannelModal.tsx  # Text / Voice, Public / Private channel creation
+│   │   │   │   ├── DeleteWorkspaceModal.tsx # Workspace deletion confirmation
+│   │   │   │   ├── InviteMembersModal.tsx   # Add members to private channels
+│   │   │   │   ├── NewDmModal.tsx           # Start direct messages
+│   │   │   │   ├── ProfileSettingsModal.tsx # Profile customization & password change
+│   │   │   │   ├── WorkspaceActionModal.tsx # Create or join workspace
+│   │   │   │   └── WorkspaceInviteModal.tsx # View & regenerate workspace invite code
+│   │   │   └── voice/
+│   │   │       ├── VoiceControlBar.tsx      # Persistent bottom voice connection status & controls
+│   │   │       ├── VoiceSettingsModal.tsx   # Audio device picker & live mic test meter
+│   │   │       └── VoiceStage.tsx           # Main stage grid with avatar cards & VAD glow rings
 │   │   ├── services/
 │   │   │   ├── api.ts                 # Axios instance with auth interceptor
-│   │   │   └── signalr.ts             # SignalR client with auto-reconnect
+│   │   │   ├── signalr.ts             # SignalR client with voice signaling listeners
+│   │   │   ├── soundEffects.ts        # Synthesized Web Audio API sound effects
+│   │   │   └── webrtcService.ts       # P2P WebRTC audio stream & VAD analyzer engine
 │   │   ├── store/
 │   │   │   ├── authStore.ts           # Authentication & active user state
 │   │   │   ├── chatStore.ts           # Channels, messages, typing, unread state
+│   │   │   ├── voiceStore.ts          # Active voice room, participants, mute/deafen states
 │   │   │   └── workspaceStore.ts      # Workspaces, members, unread counts
 │   │   ├── types/                     # TypeScript interfaces
 │   │   ├── App.tsx
@@ -196,7 +220,7 @@ To launch the **Mobile Client**, double-click `start-mobile.bat` or run:
 cd backend
 dotnet run --urls "http://0.0.0.0:5000"
 ```
-The backend initializes SQLite (`pulsechat.db`), seeds the default workspace and `#general` channel. Listening on `0.0.0.0` allows mobile devices and other computers on the LAN to connect.
+The backend initializes SQLite (`pulsechat.db`), seeds the default workspace, `#general` text channel, and `🔊 Genel Ses` voice channel. Listening on `0.0.0.0` allows mobile devices and other computers on the LAN to connect.
 
 #### Terminal 2 — Frontend (Web):
 ```bash
@@ -226,13 +250,20 @@ Scan the QR code with **Expo Go** (Android) or the Camera app (iOS) while connec
    - Click **"Sign in as Alice"** (or create a new account).
 2. Open `http://localhost:5173` in an **Incognito Window** (or another browser):
    - Click **"Sign in as Bob"**.
-3. **Test Workspaces & Unread Badges**:
+3. **Test Voice Channels (WebRTC Audio & VAD)**:
+   - In both windows, click on **`🔊 Genel Ses`** (or create a new Voice Channel via the `+` button in the sidebar).
+   - Allow microphone permissions in both browsers.
+   - Speak into your microphone $\rightarrow$ observe the **glowing green border rings** lighting up around the active speaker's avatar card in real time!
+   - Click **"Mute Microphone"** or **"Deafen Audio"** $\rightarrow$ see the red mute badge update instantly across both users' screens.
+   - Click the gear icon (`⚙️`) in the voice bar $\rightarrow$ test your microphone live with the green decibel test meter.
+   - Click the red disconnect button $\rightarrow$ hear the departure chime and notice your participant avatar disappear from the room.
+4. **Test Workspaces & Unread Badges**:
    - Click the **"+"** button on the left dock to create a new workspace (e.g. *"Gaming Lounge"*).
    - Click the workspace name header $\rightarrow$ **"Invite People"** to copy the invite code.
    - In Bob's window, click **"+"** $\rightarrow$ **"Join with Invite Code"** to join the workspace.
    - In Alice's window, switch to a different channel or workspace.
    - Send messages from Bob $\rightarrow$ observe the **red capsule badge** and Discord pill indicator increment in real time on Alice's workspace dock.
-4. **Test Channel Moderation & Join Approvals**:
+5. **Test Channel Moderation & Join Approvals**:
    - In a channel owned by Alice, click a member in the right member roster and select **"Remove from Channel"**.
    - As Bob, open **"Browse Channels"** and click **"Join"** $\rightarrow$ note that a join request is submitted instead of direct joining.
    - As Alice, review the pending join request with the note *"You previously removed this member"* and approve/reject.
