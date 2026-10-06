@@ -148,12 +148,12 @@ public class AppDbContext : DbContext
             {
                 Id = 2,
                 WorkspaceId = 1,
-                Name = "General Voice",
+                Name = "general-voice",
                 Description = "Default voice lounge for team discussions and hangouts.",
                 Type = "voice",
                 IsDirectMessage = false,
                 IsPrivate = false,
-                IsProtected = false,
+                IsProtected = true,
                 CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             }
         );

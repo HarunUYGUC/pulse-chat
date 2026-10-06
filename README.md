@@ -30,7 +30,7 @@ PulseChat is a production-grade, full-stack real-time messaging and collaboratio
 - **Zero-Lag SignalR Updates**: Workspace unread counts increment instantly as messages arrive in any channel, and decrement as channels are read.
 
 ### 💬 Channels & Direct Messages
-- **Public & Private Channels**: Default public channels (e.g. `#general`, `🔊 General Voice`) and custom channels with instant broadcast, plus private channels restricted to invited members.
+- **Public & Private Channels**: Default public channels (e.g. `#general`, `🔊 general-voice`) and custom channels with instant broadcast, plus private channels restricted to invited members.
 - **1-on-1 Direct Messages**: Direct conversations with dedicated user-to-user routing, auto-naming, and conversation history.
 - **Browse Channels Modal**: Explore, discover, and join open text and voice channels within the active workspace.
 - **Channel Descriptions**: Informative descriptions displayed directly in the channel header and workspace context.
@@ -220,7 +220,7 @@ To launch the **Mobile Client**, double-click `start-mobile.bat` or run:
 cd backend
 dotnet run --urls "http://0.0.0.0:5000"
 ```
-The backend initializes SQLite (`pulsechat.db`), seeds the default workspace, `#general` text channel, and `🔊 General Voice` voice channel. Listening on `0.0.0.0` allows mobile devices and other computers on the LAN to connect.
+The backend initializes SQLite (`pulsechat.db`), seeds the default workspace, `#general` text channel, and `🔊 general-voice` voice channel. Listening on `0.0.0.0` allows mobile devices and other computers on the LAN to connect.
 
 #### Terminal 2 — Frontend (Web):
 ```bash
@@ -251,7 +251,7 @@ Scan the QR code with **Expo Go** (Android) or the Camera app (iOS) while connec
 2. Open `http://localhost:5173` in an **Incognito Window** (or another browser):
    - Click **"Sign in as Bob"**.
 3. **Test Voice Channels (WebRTC Audio & VAD)**:
-   - In both windows, click on **`🔊 General Voice`** (or create a new Voice Channel via the `+` button in the sidebar).
+   - In both windows, click on **`🔊 general-voice`** (or create a new Voice Channel via the `+` button in the sidebar).
    - Allow microphone permissions in both browsers.
    - Speak into your microphone $\rightarrow$ observe the **glowing green border rings** lighting up around the active speaker's avatar card in real time!
    - Click **"Mute Microphone"** or **"Deafen Audio"** $\rightarrow$ see the red mute badge update instantly across both users' screens.
