@@ -26,7 +26,11 @@ import { ProfileSettingsModal } from '../modals/ProfileSettingsModal';
 import { VoiceControlBar } from '../voice/VoiceControlBar';
 import { VoiceSettingsModal } from '../voice/VoiceSettingsModal';
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  onChannelSelect?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ onChannelSelect }) => {
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [channelModalType, setChannelModalType] = useState<'text' | 'voice'>('text');
   const [isDmModalOpen, setIsDmModalOpen] = useState(false);
@@ -235,7 +239,10 @@ export const Sidebar: React.FC = () => {
                   <div
                     key={channel.id}
                     className={`sidebar-item ${isActive ? 'active' : ''} ${isUnread ? 'has-unread' : ''}`}
-                    onClick={() => setActiveChannel(channel.id)}
+                    onClick={() => {
+                      setActiveChannel(channel.id);
+                      onChannelSelect?.();
+                    }}
                   >
                     {isUnread && <span className="unread-indicator-dot" />}
                     {isPrivate ? (
@@ -299,6 +306,7 @@ export const Sidebar: React.FC = () => {
                         if (!isConnected) {
                           joinVoice(channel.id);
                         }
+                        onChannelSelect?.();
                       }}
                       title="Click to switch/join voice channel"
                     >
@@ -429,7 +437,10 @@ export const Sidebar: React.FC = () => {
                   <div
                     key={dm.id}
                     className={`sidebar-item ${isActive ? 'active' : ''} ${isUnread ? 'has-unread' : ''}`}
-                    onClick={() => setActiveChannel(dm.id)}
+                    onClick={() => {
+                      setActiveChannel(dm.id);
+                      onChannelSelect?.();
+                    }}
                   >
                     {isUnread && <span className="unread-indicator-dot" />}
                     <div className="position-relative flex-shrink-0">

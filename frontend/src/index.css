@@ -26,6 +26,7 @@ body {
   color: var(--pc-text-normal);
   overflow: hidden;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   user-select: none;
 }
@@ -49,6 +50,7 @@ body {
 /* Layout */
 .app-container {
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   display: flex;
   overflow: hidden;
@@ -62,8 +64,11 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   border-right: 1px solid rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .sidebar-header {
@@ -144,6 +149,8 @@ body {
 
 .sidebar-footer {
   height: 58px;
+  min-height: 58px;
+  flex-shrink: 0;
   background-color: var(--pc-bg-sidebar);
   padding: 0 12px;
   display: flex;
@@ -158,12 +165,17 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   min-width: 0;
   background-color: var(--pc-bg-chat);
+  overflow: hidden;
+  position: relative;
 }
 
 .chat-header {
   height: 52px;
+  min-height: 52px;
+  flex-shrink: 0;
   padding: 0 20px;
   display: flex;
   align-items: center;
@@ -171,7 +183,9 @@ body {
   border-bottom: 1px solid rgba(0, 0, 0, 0.25);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   background-color: var(--pc-bg-chat);
-  z-index: 5;
+  position: sticky;
+  top: 0;
+  z-index: 25;
 }
 
 .chat-messages-container {
@@ -368,7 +382,7 @@ body {
   height: 100vh;
   flex-shrink: 0;
   overflow: hidden;
-  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
               opacity 0.2s ease,
               border-color 0.25s ease;
 }
@@ -377,6 +391,9 @@ body {
   width: 240px;
   opacity: 1;
   border-left: 1px solid rgba(0, 0, 0, 0.2);
+  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.25s ease,
+              border-color 0.25s ease;
 }
 
 .members-sidebar.closed {
@@ -385,6 +402,9 @@ body {
   opacity: 0;
   border-left-color: transparent !important;
   pointer-events: none;
+  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.2s ease,
+              border-color 0.25s ease;
 }
 
 .members-sidebar .sidebar-content {
@@ -621,6 +641,8 @@ body {
 .workspace-sidebar {
   width: 72px;
   height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   background-color: var(--pc-bg-sidebar);
   display: flex;
   flex-direction: column;
@@ -809,3 +831,167 @@ body {
   from { transform: scale(0.95); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+
+/* ==========================================================================
+   Responsive & Mobile Drawer Styles
+   ========================================================================== */
+
+/* Disable CSS transitions during active window resizing to eliminate breakpoint flicker */
+body.is-resizing *,
+body.is-resizing *::before,
+body.is-resizing *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+.min-width-0 {
+  min-width: 0 !important;
+}
+
+/* Navigation Drawer (Holds Workspace Sidebar + Channels Sidebar) */
+.nav-drawer {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+/* Mobile & Tablet Drawer Backdrop Overlay */
+.mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.65);
+  z-index: 1040;
+  backdrop-filter: blur(2px);
+  animation: fadeInBackdrop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeInBackdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Tablet & Mobile Screens (< 1024px): Members Sidebar as Slide-Over Overlay */
+@media (max-width: 1023.98px) {
+  .members-sidebar {
+    position: fixed !important;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+    z-index: 1045;
+    width: 260px !important;
+    max-width: calc(100vw - 48px);
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.6);
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+
+  .members-sidebar.closed {
+    transform: translateX(100%);
+    width: 260px !important;
+    opacity: 0 !important;
+    pointer-events: none;
+    border-left-color: transparent !important;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease !important;
+  }
+
+  .members-sidebar.open {
+    transform: translateX(0);
+    width: 260px !important;
+    opacity: 1 !important;
+    pointer-events: auto;
+    transition: transform 0.36s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease !important;
+  }
+}
+
+/* Desktop Screens (>= 1024px): Static sidebar flow, no mobile transform or fixed overlay */
+@media (min-width: 1024px) {
+  .members-sidebar {
+    position: static !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  .members-sidebar.closed {
+    width: 0 !important;
+    min-width: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    border-left-color: transparent !important;
+  }
+}
+
+/* Mobile Screens (< 768px): Navigation as Slide-Over Drawer & Full-width Chat */
+@media (max-width: 767.98px) {
+  .nav-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+    z-index: 1045;
+    background-color: var(--pc-bg-sidebar);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.6);
+    max-width: calc(100vw - 48px);
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+
+  .nav-drawer.nav-closed {
+    transform: translateX(-100%);
+    pointer-events: none;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .nav-drawer.nav-open {
+    transform: translateX(0);
+    pointer-events: auto;
+    transition: transform 0.36s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .nav-drawer .sidebar {
+    width: calc(100vw - 72px - 48px);
+    max-width: 280px;
+    min-width: 200px;
+  }
+
+  .chat-main {
+    width: 100vw;
+    min-width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .chat-header {
+    height: 52px;
+    min-height: 52px;
+    flex-shrink: 0;
+    padding: 0 10px;
+    gap: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 25;
+  }
+
+  .chat-messages-container {
+    padding: 12px 10px 8px 10px;
+  }
+
+  .chat-input-container {
+    padding: 0 10px 10px 10px;
+  }
+
+  .message-item {
+    padding: 6px 8px;
+    gap: 10px;
+  }
+}
+

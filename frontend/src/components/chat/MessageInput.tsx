@@ -21,8 +21,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
-    // Focus textarea when switching channels
-    textareaRef.current?.focus();
+    // Focus textarea on desktop, avoid mobile keyboard jump & scroll on touch devices
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      textareaRef.current?.focus();
+    }
   }, [channelId]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {

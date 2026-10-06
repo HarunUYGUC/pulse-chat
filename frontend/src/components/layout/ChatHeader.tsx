@@ -11,6 +11,7 @@ import {
   UserPlus,
   Edit3,
   Volume2,
+  Menu,
 } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
@@ -20,11 +21,13 @@ import { EditChannelModal } from '../modals/EditChannelModal';
 interface ChatHeaderProps {
   onToggleMembers: () => void;
   isMembersOpen: boolean;
+  onToggleNav?: () => void;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onToggleMembers,
   isMembersOpen,
+  onToggleNav,
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -40,23 +43,53 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
   // Close menu on click outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowMenu(false);
       }
     };
     if (showMenu) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
     };
   }, [showMenu]);
 
   if (!activeChannel) {
     return (
       <div className="chat-header">
-        <span className="text-secondary small">Select a channel or direct message</span>
+        <div className="d-flex align-items-center gap-2 min-width-0 flex-grow-1">
+          {onToggleNav && (
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary text-white d-md-none flex-shrink-0 d-flex align-items-center justify-content-center"
+              style={{ width: '34px', height: '34px', padding: 0 }}
+              onClick={onToggleNav}
+              title="Open Navigation"
+              aria-label="Open Navigation"
+            >
+              <Menu size={18} />
+            </button>
+          )}
+          <span className="text-secondary small text-truncate">Select a channel or direct message</span>
+        </div>
+
+        <div className="d-flex align-items-center gap-2 flex-shrink-0">
+          <button
+            type="button"
+            className={`btn btn-sm ${
+              isMembersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary text-white'
+            } d-flex align-items-center gap-1 py-1 px-2`}
+            onClick={onToggleMembers}
+            title="Toggle Member List"
+          >
+            <Users size={16} />
+            <span className="small d-none d-sm-inline">Members</span>
+          </button>
+        </div>
       </div>
     );
   }
@@ -102,7 +135,21 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   return (
     <>
       <div className="chat-header">
-        <div className="d-flex align-items-center gap-2 min-width-0">
+        <div className="d-flex align-items-center gap-2 min-width-0 flex-grow-1 overflow-hidden">
+          {/* Mobile Navigation Drawer Toggle */}
+          {onToggleNav && (
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary text-white d-md-none flex-shrink-0 d-flex align-items-center justify-content-center me-1"
+              style={{ width: '34px', height: '34px', padding: 0 }}
+              onClick={onToggleNav}
+              title="Open Navigation"
+              aria-label="Open Navigation"
+            >
+              <Menu size={18} />
+            </button>
+          )}
+
           {isDm ? (
             <AtSign size={20} className="text-secondary flex-shrink-0" />
           ) : activeChannel.type === 'voice' ? (
@@ -128,12 +175,12 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <Hash size={20} className="text-secondary flex-shrink-0" />
           )}
 
-          <div className="text-truncate">
+          <div className="text-truncate min-width-0">
             <div className="d-flex align-items-center gap-2">
-              <span className="fw-bold text-white small">{displayName}</span>
+              <span className="fw-bold text-white small text-truncate">{displayName}</span>
               {isDm && (
                 <span
-                  className="badge rounded-pill"
+                  className="badge rounded-pill flex-shrink-0"
                   style={{
                     backgroundColor: isTargetOnline ? 'var(--pc-online)' : 'var(--pc-offline)',
                     fontSize: '0.65rem',
@@ -145,20 +192,20 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               )}
             </div>
             {activeChannel.description && !isDm && (
-              <div className="text-secondary text-truncate" style={{ fontSize: '0.75rem' }}>
+              <div className="text-secondary text-truncate d-none d-md-block" style={{ fontSize: '0.75rem' }}>
                 {activeChannel.description}
               </div>
             )}
           </div>
         </div>
 
-        <div className="d-flex align-items-center gap-2">
+        <div className="d-flex align-items-center gap-2 flex-shrink-0">
           {!isDm && (
             <>
               <button
                 type="button"
                 className={`btn btn-sm ${
-                  isMembersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary'
+                  isMembersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary text-white'
                 } d-flex align-items-center gap-1 py-1 px-2`}
                 onClick={onToggleMembers}
                 title="Toggle Member List"
@@ -174,7 +221,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 <button
                   type="button"
                   className={`btn btn-sm ${
-                    showMenu ? 'btn-secondary text-white' : 'btn-outline-secondary'
+                    showMenu ? 'btn-secondary text-white' : 'btn-outline-secondary text-white'
                   } py-1 px-2`}
                   onClick={() => setShowMenu(!showMenu)}
                   title="Channel Settings"

@@ -19,6 +19,7 @@ export const MessageList: React.FC<MessageListProps> = ({
     useChatStore();
   const { user } = useAuthStore();
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const [firstUnreadId, setFirstUnreadId] = useState<number | null>(null);
   const evaluatedChannelRef = useRef<number | null>(null);
@@ -26,7 +27,16 @@ export const MessageList: React.FC<MessageListProps> = ({
   const channelMessages = messages[channelId] || [];
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
-    bottomRef.current?.scrollIntoView({ behavior });
+    if (containerRef.current) {
+      if (behavior === 'smooth') {
+        containerRef.current.scrollTo({
+          top: containerRef.current.scrollHeight,
+          behavior: 'smooth',
+        });
+      } else {
+        containerRef.current.scrollTop = containerRef.current.scrollHeight;
+      }
+    }
   };
 
   useEffect(() => {
@@ -66,7 +76,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   }, [channelMessages.length]);
 
   return (
-    <div className="chat-messages-container">
+    <div className="chat-messages-container" ref={containerRef}>
       {/* Welcome Banner */}
       <div className="mt-auto mb-4 p-3 rounded" style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
         <div
