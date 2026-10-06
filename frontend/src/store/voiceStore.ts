@@ -12,6 +12,7 @@ import {
   playMuteSound,
   playUnmuteSound,
 } from '../services/soundEffects';
+import { useAuthStore } from './authStore';
 
 interface VoiceState {
   activeVoiceChannelId: number | null;
@@ -71,7 +72,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     set({ activeVoiceChannelId: channelId, connectionStatus: 'connecting' });
 
     try {
-      playJoinSound();
+      playJoinSound().catch(() => {});
 
       // Start local microphone stream
       await webrtcService.startLocalAudio(get().selectedAudioInput);
@@ -90,7 +91,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     if (!activeId) return;
 
     try {
-      playLeaveSound();
+      playLeaveSound().catch(() => {});
       await hubLeaveVoice(activeId);
     } catch (err) {
       console.warn('Error during leave voice hub call:', err);
@@ -111,9 +112,9 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     set({ isMuted: newMuted });
 
     if (newMuted) {
-      playMuteSound();
+      playMuteSound().catch(() => {});
     } else {
-      playUnmuteSound();
+      playUnmuteSound().catch(() => {});
     }
 
     webrtcService.setMute(newMuted);
@@ -132,9 +133,9 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     set({ isDeafened: newDeafened, isMuted: newMuted });
 
     if (newDeafened) {
-      playMuteSound();
+      playMuteSound().catch(() => {});
     } else {
-      playUnmuteSound();
+      playUnmuteSound().catch(() => {});
     }
 
     webrtcService.setDeafen(newDeafened);
@@ -176,6 +177,12 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   },
 
   addParticipant: (participant: VoiceParticipant) => {
+    const activeId = get().activeVoiceChannelId;
+    const currentUserId = useAuthStore.getState().user?.id;
+    if (activeId === participant.channelId && participant.userId !== currentUserId && !get().isDeafened) {
+      playJoinSound().catch(() => {});
+    }
+
     set((state) => {
       const currentList = state.voiceParticipants[participant.channelId] || [];
       const filtered = currentList.filter((p) => p.userId !== participant.userId && p.connectionId !== participant.connectionId);
@@ -190,6 +197,12 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
   removeParticipant: (channelId: number, userId: number, connectionId: string) => {
     webrtcService.removePeer(connectionId, userId);
+
+    const activeId = get().activeVoiceChannelId;
+    const currentUserId = useAuthStore.getState().user?.id;
+    if (activeId === channelId && userId !== currentUserId && !get().isDeafened) {
+      playLeaveSound().catch(() => {});
+    }
 
     set((state) => {
       const currentList = state.voiceParticipants[channelId] || [];
