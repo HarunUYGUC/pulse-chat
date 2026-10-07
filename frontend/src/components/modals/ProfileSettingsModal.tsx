@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   User as UserIcon,
   X,
@@ -218,11 +219,11 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({ isOp
   const hasPasswordChanges = Boolean(currentPassword || newPassword || confirmPassword);
   const isCurrentPasswordMissing = Boolean(!currentPassword.trim() && (newPassword || confirmPassword));
 
-  return (
+  return createPortal(
     <div
       className="modal show d-block"
       tabIndex={-1}
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 1050 }}
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 2050 }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -807,6 +808,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({ isOp
           </form>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

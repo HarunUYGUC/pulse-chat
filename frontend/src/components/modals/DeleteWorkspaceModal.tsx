@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, AlertTriangle } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { Workspace } from '../../types';
@@ -42,7 +43,7 @@ export const DeleteWorkspaceModal: React.FC<DeleteWorkspaceModalProps> = ({
     }
   };
 
-  return (
+  return createPortal(
     <div className="pc-modal-backdrop" onClick={onClose}>
       <div
         className="pc-modal-dialog"
@@ -112,6 +113,7 @@ export const DeleteWorkspaceModal: React.FC<DeleteWorkspaceModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Hash, Lock, Search, X, Users, Check, Shield, Volume2 } from 'lucide-react';
 import api from '../../services/api';
 import { useChatStore } from '../../store/chatStore';
@@ -88,11 +89,11 @@ export const BrowseChannelsModal: React.FC<BrowseChannelsModalProps> = ({
     }
   };
 
-  return (
+  return createPortal(
     <div
       className="modal show d-block"
       tabIndex={-1}
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 1050 }}
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 2050 }}
     >
       <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable" style={{ maxWidth: '600px' }}>
         <div className="modal-content pc-modal">
@@ -338,6 +339,7 @@ export const BrowseChannelsModal: React.FC<BrowseChannelsModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

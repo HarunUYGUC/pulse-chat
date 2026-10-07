@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { UserPlus, Search, Check } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import { Channel } from '../../types';
@@ -60,11 +61,11 @@ export const InviteMembersModal: React.FC<InviteMembersModalProps> = ({
     }
   };
 
-  return (
+  return createPortal(
     <div
       className="modal show d-block"
       tabIndex={-1}
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 1100 }}
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 2050 }}
     >
       <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '460px' }}>
         <div className="modal-content pc-modal">
@@ -209,6 +210,7 @@ export const InviteMembersModal: React.FC<InviteMembersModalProps> = ({
           </form>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

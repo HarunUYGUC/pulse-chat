@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Plus, LogIn, Sparkles, Key } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 
@@ -81,7 +82,7 @@ export const WorkspaceActionModal: React.FC<WorkspaceActionModalProps> = ({
     }
   };
 
-  return (
+  return createPortal(
     <div className="pc-modal-backdrop" onClick={onClose}>
       <div
         className="pc-modal-dialog"
@@ -259,6 +260,7 @@ export const WorkspaceActionModal: React.FC<WorkspaceActionModalProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

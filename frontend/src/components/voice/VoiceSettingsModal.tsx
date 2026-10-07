@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Mic, Headphones, Volume2, X, Check, Activity } from 'lucide-react';
 import { useVoiceStore } from '../../store/voiceStore';
 
@@ -91,11 +92,11 @@ export const VoiceSettingsModal: React.FC = () => {
 
   if (!isSettingsOpen) return null;
 
-  return (
+  return createPortal(
     <div
       className="modal show d-block"
       tabIndex={-1}
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 1060 }}
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 2050 }}
     >
       <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '520px' }}>
         <div className="modal-content pc-modal">
@@ -229,6 +230,7 @@ export const VoiceSettingsModal: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

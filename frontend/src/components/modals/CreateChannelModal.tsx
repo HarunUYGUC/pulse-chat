@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Hash, Lock, X, Check, Volume2 } from 'lucide-react';
 import api from '../../services/api';
 import { useChatStore } from '../../store/chatStore';
@@ -83,11 +84,11 @@ export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
 
   const otherUsers = allUsers.filter((u) => u.id !== currentUser?.id);
 
-  return (
+  return createPortal(
     <div
       className="modal show d-block"
       tabIndex={-1}
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 1050 }}
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 2050 }}
     >
       <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '480px' }}>
         <div className="modal-content pc-modal">
@@ -389,6 +390,7 @@ export const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
           </form>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

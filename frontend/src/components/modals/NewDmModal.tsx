@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { MessageCircle, X, Search, Check } from 'lucide-react';
 import api from '../../services/api';
 import { useChatStore } from '../../store/chatStore';
@@ -49,11 +50,11 @@ export const NewDmModal: React.FC<NewDmModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  return (
+  return createPortal(
     <div
       className="modal show d-block"
       tabIndex={-1}
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', zIndex: 1050 }}
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', zIndex: 2050 }}
     >
       <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '440px' }}>
         <div className="modal-content pc-modal">
@@ -199,6 +200,7 @@ export const NewDmModal: React.FC<NewDmModalProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

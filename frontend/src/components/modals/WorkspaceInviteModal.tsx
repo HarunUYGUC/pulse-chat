@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Copy, Check, RefreshCw, UserPlus, ShieldAlert } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useAuthStore } from '../../store/authStore';
@@ -49,7 +50,7 @@ export const WorkspaceInviteModal: React.FC<WorkspaceInviteModalProps> = ({
     }
   };
 
-  return (
+  return createPortal(
     <div className="pc-modal-backdrop" onClick={onClose}>
       <div
         className="pc-modal-dialog"
@@ -157,6 +158,7 @@ export const WorkspaceInviteModal: React.FC<WorkspaceInviteModalProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
