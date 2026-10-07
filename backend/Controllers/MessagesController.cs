@@ -47,7 +47,7 @@ public class MessagesController : ControllerBase
         }
 
         var messages = await query
-            .OrderByDescending(m => m.CreatedAt)
+            .OrderByDescending(m => m.Id)
             .Take(Math.Min(limit, 100))
             .Include(m => m.Sender)
             .Include(m => m.Reactions)

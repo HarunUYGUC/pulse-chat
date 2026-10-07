@@ -45,15 +45,20 @@ interface ChatState {
   setUserTyping: (channelId: number, username: string, isTyping: boolean) => void;
   fetchChannels: (workspaceId?: number) => Promise<void>;
   fetchMessages: (channelId: number) => Promise<void>;
+  fetchMoreMessages: (channelId: number) => Promise<boolean>;
   fetchUsers: (workspaceId?: number) => Promise<void>;
   markChannelAsRead: (channelId: number, messageId?: number) => Promise<void>;
   resetChat: () => void;
+  hasMoreMessages: Record<number, boolean>;
+  isLoadingMoreMessages: boolean;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
   channels: [],
   activeChannelId: null,
   messages: {},
+  hasMoreMessages: {},
+  isLoadingMoreMessages: false,
   onlineUsers: [],
   typingUsers: {},
   unreadCounts: {},
@@ -67,6 +72,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       channels: [],
       activeChannelId: null,
       messages: {},
+      hasMoreMessages: {},
+      isLoadingMoreMessages: false,
       onlineUsers: [],
       typingUsers: {},
       unreadCounts: {},
@@ -560,17 +567,65 @@ export const useChatStore = create<ChatState>((set, get) => ({
   fetchMessages: async (channelId: number) => {
     set({ isLoadingMessages: true });
     try {
-      const response = await api.get<Message[]>(`/channels/${channelId}/messages`);
+      const response = await api.get<Message[]>(`/channels/${channelId}/messages?limit=50`);
+      const msgs = response.data;
       set((state) => ({
         messages: {
           ...state.messages,
-          [channelId]: response.data,
+          [channelId]: msgs,
+        },
+        hasMoreMessages: {
+          ...state.hasMoreMessages,
+          [channelId]: msgs.length === 50,
         },
         isLoadingMessages: false,
       }));
     } catch (err) {
       console.error(`Failed to fetch messages for channel ${channelId}:`, err);
       set({ isLoadingMessages: false });
+    }
+  },
+
+  fetchMoreMessages: async (channelId: number) => {
+    const state = get();
+    if (state.isLoadingMoreMessages) return false;
+    if (state.hasMoreMessages[channelId] === false) return false;
+
+    const currentMessages = state.messages[channelId] || [];
+    if (currentMessages.length === 0) return false;
+
+    const oldestMessageId = currentMessages[0].id;
+    set({ isLoadingMoreMessages: true });
+
+    try {
+      const response = await api.get<Message[]>(
+        `/channels/${channelId}/messages?limit=50&beforeId=${oldestMessageId}`
+      );
+      const olderMessages = response.data;
+
+      set((s) => {
+        const existing = s.messages[channelId] || [];
+        const existingIds = new Set(existing.map((m) => m.id));
+        const filteredOlder = olderMessages.filter((m) => !existingIds.has(m.id));
+
+        return {
+          messages: {
+            ...s.messages,
+            [channelId]: [...filteredOlder, ...existing],
+          },
+          hasMoreMessages: {
+            ...s.hasMoreMessages,
+            [channelId]: olderMessages.length === 50,
+          },
+          isLoadingMoreMessages: false,
+        };
+      });
+
+      return olderMessages.length > 0;
+    } catch (err) {
+      console.error(`Failed to fetch older messages for channel ${channelId}:`, err);
+      set({ isLoadingMoreMessages: false });
+      return false;
     }
   },
 
