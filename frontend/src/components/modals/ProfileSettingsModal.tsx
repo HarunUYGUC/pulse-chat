@@ -201,7 +201,9 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({ isOp
 
   const formattedJoinedDate = (() => {
     try {
-      return new Date(user.createdAt).toLocaleDateString('en-US', {
+      const raw = user.createdAt;
+      const clean = raw.endsWith('Z') || /[+-]\d{2}(:\d{2})?$/.test(raw) ? raw : `${raw.includes('T') ? raw : raw.replace(' ', 'T')}Z`;
+      return new Date(clean).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',

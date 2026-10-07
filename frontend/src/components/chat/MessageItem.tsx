@@ -9,20 +9,53 @@ interface MessageItemProps {
   isUnread?: boolean;
 }
 
+const parseUtcDate = (dateStr: string): Date => {
+  if (!dateStr) return new Date();
+  // If it already has Z or timezone offset (+XX:XX or -XX:XX), parse directly
+  if (dateStr.endsWith('Z') || /[+-]\d{2}(:\d{2})?$/.test(dateStr)) {
+    return new Date(dateStr);
+  }
+  const iso = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T');
+  return new Date(`${iso}Z`);
+};
+
 const formatTimestamp = (dateStr: string) => {
   try {
-    const date = new Date(dateStr);
+    const date = parseUtcDate(dateStr);
     const now = new Date();
     const isToday =
       date.getDate() === now.getDate() &&
       date.getMonth() === now.getMonth() &&
       date.getFullYear() === now.getFullYear();
 
-    const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday =
+      date.getDate() === yesterday.getDate() &&
+      date.getMonth() === yesterday.getMonth() &&
+      date.getFullYear() === yesterday.getFullYear();
+
+    const time = date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+
     if (isToday) {
       return `Today at ${time}`;
     }
-    return `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${time}`;
+    if (isYesterday) {
+      return `Yesterday at ${time}`;
+    }
+
+    const isSameYear = date.getFullYear() === now.getFullYear();
+    const dateFormatted = date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      ...(isSameYear ? {} : { year: 'numeric' }),
+    });
+
+    return `${dateFormatted} at ${time}`;
   } catch {
     return dateStr;
   }
