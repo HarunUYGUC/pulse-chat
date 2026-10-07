@@ -108,6 +108,19 @@ using (var scope = app.Services.CreateScope())
     EnsureColumnExists(db, "Channels", "Type", "TEXT NOT NULL DEFAULT 'text'");
     EnsureColumnExists(db, "ChannelMembers", "LastReadMessageId", "INTEGER NULL");
     EnsureColumnExists(db, "ChannelMembers", "LastReadAt", "TEXT NULL");
+    EnsureColumnExists(db, "ChannelMembers", "Role", "TEXT NOT NULL DEFAULT 'Member'");
+
+    try
+    {
+        db.Database.ExecuteSqlRaw(@"
+            UPDATE ""ChannelMembers""
+            SET ""Role"" = 'Owner'
+            WHERE ""UserId"" IN (
+                SELECT ""OwnerId"" FROM ""Channels"" WHERE ""Channels"".""Id"" = ""ChannelMembers"".""ChannelId""
+            );
+        ");
+    }
+    catch { }
 
     // Delete legacy #random and #dev channels and their associated records
     try

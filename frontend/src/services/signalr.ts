@@ -165,6 +165,21 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
     useChatStore.getState().removeJoinRequest(data.requestId);
   });
 
+  hubConnection.on('ChannelMemberRoleUpdated', (data: { channelId: number; userId: number; role: string }) => {
+    const channelId = Number(data.channelId);
+    const userId = Number(data.userId);
+    if (channelId && userId && data.role) {
+      useChatStore.getState().setMemberRoleInChannel(channelId, userId, data.role);
+    }
+  });
+
+  hubConnection.on('JoinRequestResolved', (data: { requestId: number; channelId: number }) => {
+    const requestId = Number(data.requestId);
+    if (requestId) {
+      useChatStore.getState().removeJoinRequest(requestId);
+    }
+  });
+
   // 3. Voice Real-Time & WebRTC Signaling Listeners
   hubConnection.on('AllVoiceParticipants', (all: Record<number, VoiceParticipant[]>) => {
     useVoiceStore.getState().setAllVoiceParticipants(all);

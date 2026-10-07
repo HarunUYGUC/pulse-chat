@@ -5,6 +5,7 @@ export interface User {
   avatarUrl?: string;
   createdAt: string;
   isOnline?: boolean;
+  role?: string; // "Owner" | "Moderator" | "Member"
 }
 
 export interface Message {
@@ -52,6 +53,8 @@ export interface BrowseChannel {
   memberCount: number;
   isMember: boolean;
   wasKicked?: boolean;
+  kickedByUsername?: string;
+  kickedByRole?: string;
   hasPendingJoinRequest?: boolean;
   ownerId?: number;
   ownerUsername?: string;

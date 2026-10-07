@@ -242,10 +242,15 @@ export const BrowseChannelsModal: React.FC<BrowseChannelsModalProps> = ({
 
                           {channel.wasKicked && !channel.hasPendingJoinRequest && !channel.isMember && (
                             <span
-                              className="badge rounded-pill d-inline-flex align-items-center gap-1 flex-shrink-0"
+                              className="badge rounded-pill d-inline-flex align-items-center gap-1 flex-shrink-0 cursor-help"
                               style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#f87171', fontSize: '0.68rem', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+                              title={
+                                channel.kickedByUsername
+                                  ? `Removed by @${channel.kickedByUsername} (${channel.kickedByRole || 'Moderator'})`
+                                  : 'Removed from channel'
+                              }
                             >
-                              Removed by Leader
+                              Removed from channel
                             </span>
                           )}
                         </div>
@@ -306,7 +311,7 @@ export const BrowseChannelsModal: React.FC<BrowseChannelsModalProps> = ({
                             className="btn btn-sm btn-warning text-dark py-1 px-3 fw-medium"
                             disabled={isBusy}
                             onClick={() => handleJoin(channel.id)}
-                            title="You were previously removed from this channel. A join request will be sent to the channel leader."
+                            title="Request approval to rejoin this channel"
                           >
                             {isBusy ? 'Requesting...' : 'Request to Join'}
                           </button>

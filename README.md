@@ -35,11 +35,14 @@ PulseChat is a production-grade, full-stack real-time messaging and collaboratio
 - **Browse Channels Modal**: Explore, discover, and join open text and voice channels within the active workspace.
 - **Channel Descriptions**: Informative descriptions displayed directly in the channel header and workspace context.
 
-### 🛡️ Moderation & Join Request Approval Workflow
-- **Member Kick Action**: Channel leaders and creators can remove members from channels with instant real-time synchronization.
-- **Audit History**: System tracks kick records (`ChannelKickRecord`) to prevent unauthorized re-entry.
-- **Join Request System**: Kicked members attempting to rejoin via "Browse Channels" submit a join request (`ChannelJoinRequest`).
-- **Owner Approval UI**: Channel leaders review pending requests with a warning tag (*"You previously removed this member"*) and can approve or reject with one click.
+### 🛡️ Channel Roles, Moderation & Join Approval Workflow
+- **Role Hierarchy (`Owner / Leader` > `Moderator` > `Member`)**:
+  - **Channel Leader (👑)**: Assigned automatically upon channel creation (or workspace owner for default `#general`). Has full administrative authority: promotes/demotes members to/from Moderator, removes any non-leader member, approves/rejects join requests, and manages channel settings. Cannot be removed.
+  - **Channel Moderator / Co-Leader (🛡️)**: Appointed directly by the Channel Leader across both public and private channels. Can remove regular members, invite users to private channels, and approve/reject join requests. Protected by hierarchy: cannot remove the Leader or fellow Moderators.
+  - **Regular Members**: Standard messaging, reaction, and voice room participation; cannot kick others or invite users to private channels.
+- **Private Channel Security**: "Add Members" action is strictly gated to Channel Leaders and Moderators on private channels.
+- **Audit History & Rejoin Approval**: System logs removal records (`ChannelKickRecord`). When removed members view "Browse Channels", they see a `[Removed from channel]` badge with hover details (`Removed by @username (Moderator/Leader)`) and can request re-entry.
+- **Real-Time SignalR Sync**: Role changes (`ChannelMemberRoleUpdated`) and resolved join requests (`JoinRequestResolved`) sync instantly across all online participants without refreshing.
 
 ### ⚡ Live Presence & Real-Time Engagement
 - **Live User Presence**: Multi-tab connection resilience (`PresenceTracker`) tracking online/offline states with green/grey status indicators.

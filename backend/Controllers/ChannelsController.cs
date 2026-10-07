@@ -93,6 +93,8 @@ public class ChannelsController : ControllerBase
                        ((c.WorkspaceId.HasValue && validWorkspaceIds.Contains(c.WorkspaceId.Value)) ||
                         (c.IsDirectMessage && c.Members.Any(m => mutualUserIds.Contains(m.UserId)))))
             .Include(c => c.Owner)
+            .Include(c => c.Workspace)
+                .ThenInclude(w => w.Owner)
             .Include(c => c.Members)
                 .ThenInclude(m => m.User)
             .OrderBy(c => c.IsDirectMessage ? 1 : 0)
@@ -154,6 +156,8 @@ public class ChannelsController : ControllerBase
 
         var channels = await query
             .Include(c => c.Owner)
+            .Include(c => c.Workspace)
+                .ThenInclude(w => w.Owner)
             .Include(c => c.Members)
             .OrderBy(c => c.IsProtected ? 0 : 1)
             .ThenBy(c => c.Name)
@@ -161,11 +165,14 @@ public class ChannelsController : ControllerBase
 
         var channelIds = channels.Select(c => c.Id).ToList();
 
-        var userKickedChannelIds = (await _db.ChannelKickRecords
+        var userKickedRecords = await _db.ChannelKickRecords
             .Where(k => channelIds.Contains(k.ChannelId) && k.UserId == currentUserId)
-            .Select(k => k.ChannelId)
-            .ToListAsync())
-            .ToHashSet();
+            .Include(k => k.KickedBy)
+            .ToListAsync();
+
+        var userKickedMap = userKickedRecords
+            .GroupBy(k => k.ChannelId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(k => k.KickedAt).First());
 
         var userPendingRequestChannelIds = (await _db.ChannelJoinRequests
             .Where(r => channelIds.Contains(r.ChannelId) && r.UserId == currentUserId && r.Status == "Pending")
@@ -173,22 +180,37 @@ public class ChannelsController : ControllerBase
             .ToListAsync())
             .ToHashSet();
 
-        var browseList = channels.Select(c => new BrowseChannelDto
+        var browseList = channels.Select(c =>
         {
-            Id = c.Id,
-            Name = c.Name,
-            Description = c.Description,
-            Type = c.Type ?? "text",
-            WorkspaceId = c.WorkspaceId,
-            IsPrivate = c.IsPrivate,
-            IsProtected = c.IsProtected,
-            MemberCount = c.Members.Count,
-            IsMember = c.Members.Any(m => m.UserId == currentUserId),
-            WasKicked = userKickedChannelIds.Contains(c.Id),
-            HasPendingJoinRequest = userPendingRequestChannelIds.Contains(c.Id),
-            OwnerId = c.OwnerId,
-            OwnerUsername = c.Owner?.Username,
-            CreatedAt = c.CreatedAt
+            var kickRecord = userKickedMap.GetValueOrDefault(c.Id);
+            string? kickedByUsername = kickRecord?.KickedBy?.Username;
+            string? kickedByRole = null;
+            if (kickRecord != null)
+            {
+                bool isKickerLeader = (c.OwnerId.HasValue && c.OwnerId.Value == kickRecord.KickedById) ||
+                    (c.Workspace != null && c.Workspace.OwnerId == kickRecord.KickedById);
+                kickedByRole = isKickerLeader ? "Leader" : "Moderator";
+            }
+
+            return new BrowseChannelDto
+            {
+                Id = c.Id,
+                Name = c.Name,
+                Description = c.Description,
+                Type = c.Type ?? "text",
+                WorkspaceId = c.WorkspaceId,
+                IsPrivate = c.IsPrivate,
+                IsProtected = c.IsProtected,
+                MemberCount = c.Members.Count,
+                IsMember = c.Members.Any(m => m.UserId == currentUserId),
+                WasKicked = kickRecord != null,
+                KickedByUsername = kickedByUsername,
+                KickedByRole = kickedByRole,
+                HasPendingJoinRequest = userPendingRequestChannelIds.Contains(c.Id),
+                OwnerId = c.OwnerId,
+                OwnerUsername = c.Owner?.Username,
+                CreatedAt = c.CreatedAt
+            };
         }).ToList();
 
         return Ok(browseList);
@@ -200,6 +222,8 @@ public class ChannelsController : ControllerBase
         var currentUserId = GetCurrentUserId();
         var channel = await _db.Channels
             .Include(c => c.Owner)
+            .Include(c => c.Workspace)
+                .ThenInclude(w => w.Owner)
             .Include(c => c.Members)
                 .ThenInclude(m => m.User)
             .FirstOrDefaultAsync(c => c.Id == id);
@@ -269,6 +293,7 @@ public class ChannelsController : ControllerBase
         {
             ChannelId = channel.Id,
             UserId = currentUserId,
+            Role = "Owner",
             JoinedAt = DateTime.UtcNow
         });
 
@@ -285,6 +310,7 @@ public class ChannelsController : ControllerBase
                 {
                     ChannelId = channel.Id,
                     UserId = wm.UserId,
+                    Role = "Member",
                     JoinedAt = DateTime.UtcNow
                 });
             }
@@ -303,6 +329,7 @@ public class ChannelsController : ControllerBase
                 {
                     ChannelId = channel.Id,
                     UserId = targetId,
+                    Role = "Member",
                     JoinedAt = DateTime.UtcNow
                 });
             }
@@ -342,6 +369,8 @@ public class ChannelsController : ControllerBase
         var currentUserId = GetCurrentUserId();
         var channel = await _db.Channels
             .Include(c => c.Owner)
+            .Include(c => c.Workspace)
+                .ThenInclude(w => w.Owner)
             .Include(c => c.Members).ThenInclude(m => m.User)
             .FirstOrDefaultAsync(c => c.Id == id);
 
@@ -401,10 +430,34 @@ public class ChannelsController : ControllerBase
                 WasPreviouslyKicked = true
             };
 
-            // Notify channel leader (owner) via SignalR
+            // Notify channel leader (owner or workspace owner) and moderators via SignalR
+            var notifyUserIds = new HashSet<int>();
             if (channel.OwnerId.HasValue)
             {
-                await _hubContext.Clients.Group($"user-{channel.OwnerId.Value}").SendAsync("JoinRequestReceived", joinRequestDto);
+                notifyUserIds.Add(channel.OwnerId.Value);
+            }
+            else if (channel.Workspace != null)
+            {
+                notifyUserIds.Add(channel.Workspace.OwnerId);
+            }
+            else if (channel.WorkspaceId.HasValue)
+            {
+                var wsOwnerId = await _db.Workspaces.Where(w => w.Id == channel.WorkspaceId.Value).Select(w => w.OwnerId).FirstOrDefaultAsync();
+                if (wsOwnerId > 0)
+                {
+                    notifyUserIds.Add(wsOwnerId);
+                }
+            }
+
+            var modIds = channel.Members.Where(m => m.Role == "Moderator").Select(m => m.UserId).ToList();
+            foreach (var mId in modIds)
+            {
+                notifyUserIds.Add(mId);
+            }
+
+            foreach (var targetUserId in notifyUserIds)
+            {
+                await _hubContext.Clients.Group($"user-{targetUserId}").SendAsync("JoinRequestReceived", joinRequestDto);
             }
 
             return Ok(new { isPending = true, message = "Join request sent to the channel leader for approval." });
@@ -487,6 +540,22 @@ public class ChannelsController : ControllerBase
         return Ok(new { message = "Left channel successfully." });
     }
 
+    private async Task<(bool isLeader, bool isModerator, bool canManage)> GetUserChannelPermissions(Channel channel, int userId)
+    {
+        bool isOwner = channel.OwnerId.HasValue && channel.OwnerId.Value == userId;
+        bool isWsOwner = false;
+        if (channel.WorkspaceId.HasValue)
+        {
+            isWsOwner = await _db.Workspaces.AnyAsync(w => w.Id == channel.WorkspaceId.Value && w.OwnerId == userId);
+        }
+        bool isLeader = isOwner || isWsOwner;
+
+        var member = channel.Members.FirstOrDefault(m => m.UserId == userId);
+        bool isMod = member != null && member.Role == "Moderator";
+
+        return (isLeader, isMod, isLeader || isMod);
+    }
+
     [HttpDelete("{id}/members/{userId}")]
     public async Task<IActionResult> KickMember(int id, int userId)
     {
@@ -502,31 +571,36 @@ public class ChannelsController : ControllerBase
         if (channel.IsDirectMessage)
             return BadRequest(new { message = "Cannot remove members from direct messages." });
 
-        if (channel.IsProtected)
-            return BadRequest(new { message = "Cannot remove members from default protected channels." });
+        var (isLeader, isModerator, canManage) = await GetUserChannelPermissions(channel, currentUserId);
 
-        // Verify caller is channel creator/owner OR workspace owner
-        bool isChannelOwner = channel.OwnerId.HasValue && channel.OwnerId.Value == currentUserId;
-        bool isWorkspaceOwner = false;
-        if (channel.WorkspaceId.HasValue)
+        if (!canManage)
         {
-            isWorkspaceOwner = await _db.Workspaces.AnyAsync(w => w.Id == channel.WorkspaceId.Value && w.OwnerId == currentUserId);
-        }
-
-        if (!isChannelOwner && !isWorkspaceOwner)
-        {
-            return StatusCode(403, new { message = "Only the channel creator or workspace owner can remove members from this channel." });
+            return StatusCode(403, new { message = "Only the channel leader or moderators can remove members from this channel." });
         }
 
         if (userId == currentUserId)
         {
-            return BadRequest(new { message = "Channel creator cannot kick themselves. Delete the channel instead." });
+            return BadRequest(new { message = "You cannot remove yourself from the channel. Use Leave Channel instead." });
         }
 
         var member = channel.Members.FirstOrDefault(m => m.UserId == userId);
         if (member == null)
         {
             return NotFound(new { message = "User is not a member of this channel." });
+        }
+
+        // Cannot kick the channel owner/leader
+        bool isTargetLeader = (channel.OwnerId.HasValue && channel.OwnerId.Value == userId) ||
+            (channel.WorkspaceId.HasValue && await _db.Workspaces.AnyAsync(w => w.Id == channel.WorkspaceId.Value && w.OwnerId == userId));
+        if (isTargetLeader)
+        {
+            return StatusCode(403, new { message = "Cannot kick the channel leader." });
+        }
+
+        // Moderators cannot kick other moderators
+        if (!isLeader && member.Role == "Moderator")
+        {
+            return StatusCode(403, new { message = "Moderators cannot kick other moderators. Only the channel leader can." });
         }
 
         _db.ChannelMembers.Remove(member);
@@ -561,24 +635,74 @@ public class ChannelsController : ControllerBase
         return Ok(new { message = $"User was removed from #{channel.Name}." });
     }
 
+    [HttpPut("{id}/members/{userId}/role")]
+    public async Task<IActionResult> UpdateMemberRole(int id, int userId, [FromBody] UpdateChannelMemberRoleDto dto)
+    {
+        var currentUserId = GetCurrentUserId();
+
+        var channel = await _db.Channels
+            .Include(c => c.Members)
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (channel == null)
+            return NotFound(new { message = "Channel not found." });
+
+        if (channel.IsDirectMessage)
+            return BadRequest(new { message = "Direct messages do not support member roles." });
+
+        var (isLeader, _, _) = await GetUserChannelPermissions(channel, currentUserId);
+        if (!isLeader)
+        {
+            return StatusCode(403, new { message = "Only the channel leader can assign or remove moderator roles." });
+        }
+
+        if (userId == currentUserId)
+        {
+            return BadRequest(new { message = "Channel leader cannot modify their own role." });
+        }
+
+        var member = channel.Members.FirstOrDefault(m => m.UserId == userId);
+        if (member == null)
+        {
+            return NotFound(new { message = "User is not a member of this channel." });
+        }
+
+        var newRole = dto.Role == "Moderator" ? "Moderator" : "Member";
+        member.Role = newRole;
+        await _db.SaveChangesAsync();
+
+        // Broadcast to channel group and personal user group
+        await _hubContext.Clients.Group($"channel-{id}").SendAsync("ChannelMemberRoleUpdated", new
+        {
+            channelId = id,
+            userId = userId,
+            role = newRole
+        });
+
+        await _hubContext.Clients.Group($"user-{userId}").SendAsync("ChannelMemberRoleUpdated", new
+        {
+            channelId = id,
+            userId = userId,
+            role = newRole
+        });
+
+        return Ok(new { message = $"Member role updated to {newRole}.", role = newRole });
+    }
+
     [HttpGet("{id}/join-requests")]
     public async Task<ActionResult<List<ChannelJoinRequestDto>>> GetJoinRequests(int id)
     {
         var currentUserId = GetCurrentUserId();
-        var channel = await _db.Channels.FirstOrDefaultAsync(c => c.Id == id);
+        var channel = await _db.Channels
+            .Include(c => c.Members)
+            .FirstOrDefaultAsync(c => c.Id == id);
         if (channel == null)
             return NotFound(new { message = "Channel not found." });
 
-        bool isOwner = channel.OwnerId.HasValue && channel.OwnerId.Value == currentUserId;
-        bool isWorkspaceOwner = false;
-        if (channel.WorkspaceId.HasValue)
+        var (isLeader, isModerator, canManage) = await GetUserChannelPermissions(channel, currentUserId);
+        if (!canManage)
         {
-            isWorkspaceOwner = await _db.Workspaces.AnyAsync(w => w.Id == channel.WorkspaceId.Value && w.OwnerId == currentUserId);
-        }
-
-        if (!isOwner && !isWorkspaceOwner)
-        {
-            return StatusCode(403, new { message = "Only the channel creator or workspace owner can view join requests." });
+            return StatusCode(403, new { message = "Only the channel leader or moderators can view join requests." });
         }
 
         var requests = await _db.ChannelJoinRequests
@@ -608,22 +732,18 @@ public class ChannelsController : ControllerBase
         var currentUserId = GetCurrentUserId();
         var channel = await _db.Channels
             .Include(c => c.Owner)
+            .Include(c => c.Workspace)
+                .ThenInclude(w => w.Owner)
             .Include(c => c.Members).ThenInclude(m => m.User)
             .FirstOrDefaultAsync(c => c.Id == id);
 
         if (channel == null)
             return NotFound(new { message = "Channel not found." });
 
-        bool isOwner = channel.OwnerId.HasValue && channel.OwnerId.Value == currentUserId;
-        bool isWorkspaceOwner = false;
-        if (channel.WorkspaceId.HasValue)
+        var (isLeader, isModerator, canManage) = await GetUserChannelPermissions(channel, currentUserId);
+        if (!canManage)
         {
-            isWorkspaceOwner = await _db.Workspaces.AnyAsync(w => w.Id == channel.WorkspaceId.Value && w.OwnerId == currentUserId);
-        }
-
-        if (!isOwner && !isWorkspaceOwner)
-        {
-            return StatusCode(403, new { message = "Only the channel creator or workspace owner can approve join requests." });
+            return StatusCode(403, new { message = "Only the channel leader or moderators can approve join requests." });
         }
 
         var request = await _db.ChannelJoinRequests
@@ -652,6 +772,7 @@ public class ChannelsController : ControllerBase
             {
                 ChannelId = id,
                 UserId = request.UserId,
+                Role = "Member",
                 JoinedAt = DateTime.UtcNow
             });
         }
@@ -666,7 +787,8 @@ public class ChannelsController : ControllerBase
             Email = user.Email,
             AvatarUrl = user.AvatarUrl,
             CreatedAt = user.CreatedAt,
-            IsOnline = _presenceTracker.IsUserOnline(user.Username)
+            IsOnline = _presenceTracker.IsUserOnline(user.Username),
+            Role = "Member"
         };
 
         // Reload channel to get latest members
@@ -691,6 +813,13 @@ public class ChannelsController : ControllerBase
             channel = channelDto
         });
 
+        // Notify managers that this request is resolved
+        await _hubContext.Clients.Group($"channel-{id}").SendAsync("JoinRequestResolved", new
+        {
+            requestId = request.Id,
+            channelId = id
+        });
+
         return Ok(new { message = $"Approved @{user.Username} to join #{channel.Name}." });
     }
 
@@ -698,20 +827,19 @@ public class ChannelsController : ControllerBase
     public async Task<IActionResult> RejectJoinRequest(int id, int requestId)
     {
         var currentUserId = GetCurrentUserId();
-        var channel = await _db.Channels.FirstOrDefaultAsync(c => c.Id == id);
+        var channel = await _db.Channels
+            .Include(c => c.Owner)
+            .Include(c => c.Workspace)
+                .ThenInclude(w => w.Owner)
+            .Include(c => c.Members)
+            .FirstOrDefaultAsync(c => c.Id == id);
         if (channel == null)
             return NotFound(new { message = "Channel not found." });
 
-        bool isOwner = channel.OwnerId.HasValue && channel.OwnerId.Value == currentUserId;
-        bool isWorkspaceOwner = false;
-        if (channel.WorkspaceId.HasValue)
+        var (isLeader, isModerator, canManage) = await GetUserChannelPermissions(channel, currentUserId);
+        if (!canManage)
         {
-            isWorkspaceOwner = await _db.Workspaces.AnyAsync(w => w.Id == channel.WorkspaceId.Value && w.OwnerId == currentUserId);
-        }
-
-        if (!isOwner && !isWorkspaceOwner)
-        {
-            return StatusCode(403, new { message = "Only the channel creator or workspace owner can decline join requests." });
+            return StatusCode(403, new { message = "Only the channel leader or moderators can decline join requests." });
         }
 
         var request = await _db.ChannelJoinRequests
@@ -733,6 +861,13 @@ public class ChannelsController : ControllerBase
             requestId = request.Id,
             channelId = id,
             channelName = channel.Name
+        });
+
+        // Notify managers that this request is resolved
+        await _hubContext.Clients.Group($"channel-{id}").SendAsync("JoinRequestResolved", new
+        {
+            requestId = request.Id,
+            channelId = id
         });
 
         return Ok(new { message = $"Declined join request from @{request.User.Username}." });
@@ -794,6 +929,8 @@ public class ChannelsController : ControllerBase
         var currentUserId = GetCurrentUserId();
         var channel = await _db.Channels
             .Include(c => c.Owner)
+            .Include(c => c.Workspace)
+                .ThenInclude(w => w.Owner)
             .Include(c => c.Members).ThenInclude(m => m.User)
             .FirstOrDefaultAsync(c => c.Id == id);
 
@@ -806,6 +943,12 @@ public class ChannelsController : ControllerBase
         // Only existing members can invite others
         if (!channel.Members.Any(m => m.UserId == currentUserId))
             return StatusCode(403, new { message = "Only channel members can invite others." });
+
+        var (isLeader, isModerator, canManage) = await GetUserChannelPermissions(channel, currentUserId);
+        if (channel.IsPrivate && !canManage)
+        {
+            return StatusCode(403, new { message = "Only channel leaders and moderators can invite members to private channels." });
+        }
 
         var existingMemberIds = channel.Members.Select(m => m.UserId).ToHashSet();
         var newMemberIds = dto.UserIds.Distinct().Where(uid => !existingMemberIds.Contains(uid)).ToList();
@@ -820,6 +963,7 @@ public class ChannelsController : ControllerBase
             {
                 ChannelId = channel.Id,
                 UserId = user.Id,
+                Role = "Member",
                 JoinedAt = DateTime.UtcNow
             });
         }
@@ -847,7 +991,8 @@ public class ChannelsController : ControllerBase
                 Email = user.Email,
                 AvatarUrl = user.AvatarUrl,
                 CreatedAt = user.CreatedAt,
-                IsOnline = _presenceTracker.IsUserOnline(user.Username)
+                IsOnline = _presenceTracker.IsUserOnline(user.Username),
+                Role = "Member"
             };
             await _hubContext.Clients.Group($"channel-{channel.Id}").SendAsync("UserJoinedChannel", new { channelId = channel.Id, user = userDto });
         }
@@ -1024,12 +1169,12 @@ public class ChannelsController : ControllerBase
         int? effectiveOwnerId = channel.OwnerId;
         string? effectiveOwnerUsername = channel.Owner?.Username;
 
-        if (channel.IsProtected)
+        if (!effectiveOwnerId.HasValue && channel.Workspace != null)
         {
-            effectiveOwnerId = null;
-            effectiveOwnerUsername = null;
+            effectiveOwnerId = channel.Workspace.OwnerId;
+            effectiveOwnerUsername = channel.Workspace.Owner?.Username;
         }
-        else if (!channel.IsDirectMessage && !effectiveOwnerId.HasValue)
+        else if (!channel.IsDirectMessage && !effectiveOwnerId.HasValue && !channel.IsProtected)
         {
             var firstMember = channel.Members.OrderBy(m => m.JoinedAt).FirstOrDefault();
             effectiveOwnerId = firstMember?.UserId;
@@ -1054,14 +1199,27 @@ public class ChannelsController : ControllerBase
             CreatedAt = channel.CreatedAt,
             UnreadCount = unreadCount,
             LastReadMessageId = lastReadMessageId,
-            Members = channel.Members.Select(m => new UserDto
+            Members = channel.Members.Select(m =>
             {
-                Id = m.User.Id,
-                Username = m.User.Username,
-                Email = m.User.Email,
-                AvatarUrl = m.User.AvatarUrl,
-                CreatedAt = m.User.CreatedAt,
-                IsOnline = _presenceTracker.IsUserOnline(m.User.Username)
+                string effectiveRole = m.Role;
+                if (string.IsNullOrEmpty(effectiveRole) || effectiveRole == "Member")
+                {
+                    if (channel.OwnerId == m.UserId || effectiveOwnerId == m.UserId)
+                        effectiveRole = "Owner";
+                    else
+                        effectiveRole = "Member";
+                }
+
+                return new UserDto
+                {
+                    Id = m.User.Id,
+                    Username = m.User.Username,
+                    Email = m.User.Email,
+                    AvatarUrl = m.User.AvatarUrl,
+                    CreatedAt = m.User.CreatedAt,
+                    IsOnline = _presenceTracker.IsUserOnline(m.User.Username),
+                    Role = effectiveRole
+                };
             }).ToList(),
             LastMessage = lastMessage == null ? null : new MessageDto
             {

@@ -11,6 +11,7 @@ public class ChannelMember
     public User User { get; set; } = null!;
 
     public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
+    public string Role { get; set; } = "Member"; // "Owner", "Moderator", "Member"
     public int? LastReadMessageId { get; set; }
     public DateTime? LastReadAt { get; set; }
 }

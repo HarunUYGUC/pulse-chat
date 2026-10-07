@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { UserPlus, Search, Check } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
+import { useAuthStore } from '../../store/authStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 import { Channel } from '../../types';
 
 interface InviteMembersModalProps {
@@ -20,6 +22,18 @@ export const InviteMembersModal: React.FC<InviteMembersModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { allUsers, fetchUsers, inviteMembers } = useChatStore();
+  const { user } = useAuthStore();
+  const { workspaces } = useWorkspaceStore();
+
+  const currentWorkspace = workspaces.find((w) => w.id === channel.workspaceId);
+  const isLeader = Boolean(
+    user && (
+      (channel.ownerId && channel.ownerId === user.id) ||
+      (!channel.ownerId && currentWorkspace && currentWorkspace.ownerId === user.id)
+    )
+  );
+  const isMod = channel.members?.find((m) => m.id === user?.id)?.role === 'Moderator';
+  const canManage = isLeader || isMod;
 
   useEffect(() => {
     if (isOpen) {
@@ -30,6 +44,7 @@ export const InviteMembersModal: React.FC<InviteMembersModalProps> = ({
   }, [isOpen, fetchUsers, channel.workspaceId]);
 
   if (!isOpen) return null;
+  if (channel.isPrivate && !canManage) return null;
 
   // Filter out users who are already members of this channel
   const currentMemberIds = new Set(channel.members?.map((m) => m.id) || []);

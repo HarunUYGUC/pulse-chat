@@ -34,6 +34,8 @@ interface ChatState {
   userJoinedChannel: (channelId: number, user: User) => void;
   workspaceMemberJoined: (workspaceId: number, member: WorkspaceMember) => void;
   userLeftChannel: (channelId: number, userId: number) => void;
+  updateMemberRole: (channelId: number, userId: number, role: string) => Promise<void>;
+  setMemberRoleInChannel: (channelId: number, userId: number, role: string) => void;
   handleUserUpdated: (user: User) => void;
   setActiveChannel: (channelId: number) => void;
   setMessages: (channelId: number, messages: Message[]) => void;
@@ -253,6 +255,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
       return { channels: updatedChannels };
     });
+  },
+
+  updateMemberRole: async (channelId: number, userId: number, role: string) => {
+    await api.put(`/channels/${channelId}/members/${userId}/role`, { role });
+    get().setMemberRoleInChannel(channelId, userId, role);
+  },
+
+  setMemberRoleInChannel: (channelId: number, userId: number, role: string) => {
+    set((state) => ({
+      channels: state.channels.map((c) => {
+        if (c.id !== channelId) return c;
+        const currentMembers = c.members || [];
+        return {
+          ...c,
+          members: currentMembers.map((m) => (m.id === userId ? { ...m, role } : m)),
+        };
+      }),
+    }));
   },
 
   handleUserUpdated: (user: User) => {

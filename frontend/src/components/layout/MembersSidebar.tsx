@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, UserX, Crown, X, Check } from 'lucide-react';
+import { UserPlus, UserX, Crown, Shield, ShieldCheck, ShieldMinus, X, Check } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 import { InviteMembersModal } from '../modals/InviteMembersModal';
 import api from '../../services/api';
 import { Channel, User } from '../../types';
@@ -15,6 +16,7 @@ export const MembersSidebar: React.FC<MembersSidebarProps> = ({ isOpen = true })
   const [memberToKick, setMemberToKick] = useState<User | null>(null);
   const [isKicking, setIsKicking] = useState(false);
   const [requestActionLoading, setRequestActionLoading] = useState<number | null>(null);
+  const [roleActionLoading, setRoleActionLoading] = useState<number | null>(null);
 
   const {
     channels,
@@ -27,25 +29,38 @@ export const MembersSidebar: React.FC<MembersSidebarProps> = ({ isOpen = true })
     addChannel,
     setActiveChannel,
     kickMember,
+    updateMemberRole,
   } = useChatStore();
   const { user: currentUser } = useAuthStore();
+  const { workspaces } = useWorkspaceStore();
 
   const activeChannel = channels.find((c) => c.id === activeChannelId);
+  const currentWorkspace = workspaces.find((w) => w.id === activeChannel?.workspaceId);
+  const isWorkspaceOwner = Boolean(
+    currentWorkspace && currentUser && currentWorkspace.ownerId === currentUser.id
+  );
+
+  // Channel Leader: channel owner OR (for protected/default channels like #general) workspace owner
+  const isCurrentUserLeader = Boolean(
+    currentUser && (
+      (activeChannel?.ownerId && activeChannel.ownerId === currentUser.id) ||
+      (!activeChannel?.ownerId && isWorkspaceOwner)
+    )
+  );
+
+  const currentMember = activeChannel?.members?.find((m) => m.id === currentUser?.id);
+  const isCurrentUserModerator = currentMember?.role === 'Moderator';
+  const canManage = isCurrentUserLeader || isCurrentUserModerator;
 
   useEffect(() => {
-    if (activeChannel?.id && activeChannel.ownerId === currentUser?.id) {
+    if (activeChannel?.id && canManage) {
       fetchJoinRequests(activeChannel.id);
     }
-  }, [activeChannel?.id, activeChannel?.ownerId, currentUser?.id]);
+  }, [activeChannel?.id, canManage, fetchJoinRequests]);
 
   if (!activeChannel || activeChannel.isDirectMessage || activeChannel.IsDirectMessage) {
     return null;
   }
-
-  const isChannelOwner = Boolean(
-    activeChannel.ownerId && activeChannel.ownerId === currentUser?.id
-  );
-  const canKick = isChannelOwner && !activeChannel.isProtected;
 
   const members = activeChannel.members || [];
   const onlineMembers: User[] = [];
@@ -73,6 +88,19 @@ export const MembersSidebar: React.FC<MembersSidebarProps> = ({ isOpen = true })
     }
   };
 
+  const handleToggleRole = async (targetUser: User, currentRole?: string) => {
+    if (!activeChannel || !isCurrentUserLeader) return;
+    const newRole = currentRole === 'Moderator' ? 'Member' : 'Moderator';
+    setRoleActionLoading(targetUser.id);
+    try {
+      await updateMemberRole(activeChannel.id, targetUser.id, newRole);
+    } catch (err) {
+      console.error('Failed to update member role:', err);
+    } finally {
+      setRoleActionLoading(null);
+    }
+  };
+
   const handleConfirmKick = async () => {
     if (!memberToKick) return;
     setIsKicking(true);
@@ -86,7 +114,7 @@ export const MembersSidebar: React.FC<MembersSidebarProps> = ({ isOpen = true })
     }
   };
 
-  const channelJoinRequests = isChannelOwner
+  const channelJoinRequests = canManage
     ? joinRequests.filter((r) => r.channelId === activeChannel.id)
     : [];
 
@@ -122,7 +150,21 @@ export const MembersSidebar: React.FC<MembersSidebarProps> = ({ isOpen = true })
         </div>
         {list.map((member) => {
           const isSelf = member.id === currentUser?.id;
-          const isOwnerOfChannel = activeChannel.ownerId === member.id;
+          const isTargetLeader = Boolean(
+            (activeChannel.ownerId && activeChannel.ownerId === member.id) ||
+            (!activeChannel.ownerId && currentWorkspace?.ownerId === member.id) ||
+            member.role === 'Owner'
+          );
+          const isTargetModerator = !isTargetLeader && member.role === 'Moderator';
+
+          // Hierarchy permissions:
+          // Leader can kick any non-leader; Moderator can only kick regular members
+          const canKickThisMember = !isSelf && !isTargetLeader && (
+            isCurrentUserLeader || (isCurrentUserModerator && !isTargetModerator)
+          );
+
+          // Only Channel Leader can assign/remove Moderator role
+          const canChangeRoleThisMember = isCurrentUserLeader && !isSelf && !isTargetLeader;
 
           return (
             <div
@@ -154,11 +196,19 @@ export const MembersSidebar: React.FC<MembersSidebarProps> = ({ isOpen = true })
                   <span className="small text-white fw-medium text-truncate">
                     {member.username}
                   </span>
-                  {isOwnerOfChannel && (
+                  {isTargetLeader && (
                     <span title="Channel Leader">
                       <Crown
                         size={13}
                         className="text-warning flex-shrink-0"
+                      />
+                    </span>
+                  )}
+                  {isTargetModerator && (
+                    <span title="Moderator">
+                      <Shield
+                        size={13}
+                        className="text-info flex-shrink-0"
                       />
                     </span>
                   )}
@@ -170,20 +220,43 @@ export const MembersSidebar: React.FC<MembersSidebarProps> = ({ isOpen = true })
                 </div>
               </div>
 
-              {/* Channel Leader Kick Button */}
-              {canKick && !isSelf && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-link p-1 text-secondary opacity-75 hover-opacity-100 flex-shrink-0"
-                  title={`Remove @${member.username} from #${activeChannel.name}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMemberToKick(member);
-                  }}
-                >
-                  <UserX size={15} className="text-danger" />
-                </button>
-              )}
+              {/* Action Buttons */}
+              <div className="d-flex align-items-center gap-1">
+                {/* Promote / Demote Moderator (Only Channel Leader) */}
+                {canChangeRoleThisMember && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-link p-1 text-secondary opacity-75 hover-opacity-100 flex-shrink-0"
+                    title={isTargetModerator ? 'Dismiss Moderator' : 'Make Moderator'}
+                    disabled={roleActionLoading === member.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleRole(member, member.role);
+                    }}
+                  >
+                    {isTargetModerator ? (
+                      <ShieldMinus size={14} className="text-warning" />
+                    ) : (
+                      <ShieldCheck size={14} className="text-info" />
+                    )}
+                  </button>
+                )}
+
+                {/* Kick Member */}
+                {canKickThisMember && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-link p-1 text-secondary opacity-75 hover-opacity-100 flex-shrink-0"
+                    title={`Remove @${member.username} from #${activeChannel.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMemberToKick(member);
+                    }}
+                  >
+                    <UserX size={15} className="text-danger" />
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
@@ -195,8 +268,8 @@ export const MembersSidebar: React.FC<MembersSidebarProps> = ({ isOpen = true })
     <>
       <div className={`members-sidebar ${isOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-content">
-          {/* Channel Leader Pending Join Requests */}
-          {isChannelOwner && channelJoinRequests.length > 0 && (
+          {/* Channel Leader & Moderator Pending Join Requests */}
+          {canManage && channelJoinRequests.length > 0 && (
             <div
               className="mb-3 p-2 rounded"
               style={{
@@ -248,7 +321,7 @@ export const MembersSidebar: React.FC<MembersSidebarProps> = ({ isOpen = true })
                             lineHeight: '1.2',
                           }}
                         >
-                          <span>⚠️ Previously kicked by you</span>
+                          <span>⚠️ Previously kicked from channel</span>
                         </div>
                       )}
 
@@ -281,7 +354,8 @@ export const MembersSidebar: React.FC<MembersSidebarProps> = ({ isOpen = true })
             </div>
           )}
 
-          {activeChannel.isPrivate && (
+          {/* Add Members Button: in private channels, only Leader & Moderator can add members */}
+          {activeChannel.isPrivate && canManage && (
             <div className="p-2 mb-2 border-bottom" style={{ borderColor: 'var(--pc-border)' }}>
               <button
                 type="button"
@@ -333,7 +407,8 @@ export const MembersSidebar: React.FC<MembersSidebarProps> = ({ isOpen = true })
 
             <div className="p-3">
               <p className="small text-secondary mb-3">
-                Are you sure you want to remove <strong className="text-white">@{memberToKick.username}</strong> from <strong className="text-white">#{activeChannel.name}</strong>?
+                Are you sure you want to remove <strong className="text-white">@{memberToKick.username}</strong> from{' '}
+                <strong className="text-white">#{activeChannel.name}</strong>?
               </p>
               <div className="d-flex justify-content-end gap-2">
                 <button

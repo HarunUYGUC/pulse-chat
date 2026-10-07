@@ -56,6 +56,8 @@ public class BrowseChannelDto
     public int? OwnerId { get; set; }
     public string? OwnerUsername { get; set; }
     public bool WasKicked { get; set; }
+    public string? KickedByUsername { get; set; }
+    public string? KickedByRole { get; set; }
     public bool HasPendingJoinRequest { get; set; }
     public DateTime CreatedAt { get; set; }
 }
@@ -121,4 +123,10 @@ public class UpdateChannelDto
 public class MarkReadDto
 {
     public int? MessageId { get; set; }
+}
+
+public class UpdateChannelMemberRoleDto
+{
+    [Required]
+    public string Role { get; set; } = "Member"; // "Moderator" or "Member"
 }
