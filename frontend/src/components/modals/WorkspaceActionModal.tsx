@@ -97,46 +97,37 @@ export const WorkspaceActionModal: React.FC<WorkspaceActionModalProps> = ({
           </div>
           <button
             type="button"
-            className="btn btn-sm btn-link text-secondary p-0"
+            className="pc-modal-close-btn"
             onClick={onClose}
+            title="Close"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Tab Switcher */}
-        <div className="d-flex border-bottom" style={{ borderColor: 'var(--pc-border)', backgroundColor: 'rgba(0,0,0,0.15)' }}>
+        <div className="modal-tab-bar">
           <button
             type="button"
-            className={`btn flex-fill rounded-0 py-2 fw-semibold small d-flex align-items-center justify-content-center gap-2 ${
-              activeTab === 'create'
-                ? 'text-white border-bottom border-2 border-primary bg-transparent'
-                : 'bg-transparent border-0'
-            }`}
-            style={activeTab !== 'create' ? { color: '#949ba4' } : undefined}
+            className={`modal-tab-btn ${activeTab === 'create' ? 'active' : ''}`}
             onClick={() => {
               setActiveTab('create');
               setError(null);
             }}
           >
             <Plus size={16} />
-            Create Workspace
+            <span>Create Workspace</span>
           </button>
           <button
             type="button"
-            className={`btn flex-fill rounded-0 py-2 fw-semibold small d-flex align-items-center justify-content-center gap-2 ${
-              activeTab === 'join'
-                ? 'text-white border-bottom border-2 border-primary bg-transparent'
-                : 'bg-transparent border-0'
-            }`}
-            style={activeTab !== 'join' ? { color: '#949ba4' } : undefined}
+            className={`modal-tab-btn join-tab ${activeTab === 'join' ? 'active' : ''}`}
             onClick={() => {
               setActiveTab('join');
               setError(null);
             }}
           >
             <LogIn size={16} />
-            Join with Code
+            <span>Join with Code</span>
           </button>
         </div>
 
@@ -187,7 +178,7 @@ export const WorkspaceActionModal: React.FC<WorkspaceActionModalProps> = ({
               <div className="d-flex justify-content-end gap-2 pt-2">
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm px-3"
+                  className="pc-action-btn-secondary"
                   onClick={onClose}
                   disabled={isSubmitting}
                 >
@@ -195,10 +186,11 @@ export const WorkspaceActionModal: React.FC<WorkspaceActionModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-primary btn-sm px-3"
+                  className="pc-action-btn-primary"
                   disabled={isSubmitting || !name.trim()}
                 >
-                  {isSubmitting ? 'Creating...' : 'Create Workspace'}
+                  <Plus size={16} />
+                  <span>{isSubmitting ? 'Creating...' : 'Create Workspace'}</span>
                 </button>
               </div>
             </form>
@@ -216,15 +208,8 @@ export const WorkspaceActionModal: React.FC<WorkspaceActionModalProps> = ({
                 <label className="pc-form-label">
                   Invite Code
                 </label>
-                <div className="input-group">
-                  <span
-                    className="input-group-text"
-                    style={{
-                      backgroundColor: 'var(--pc-bg-sidebar)',
-                      borderColor: 'var(--pc-border)',
-                      color: '#949ba4',
-                    }}
-                  >
+                <div className="input-group pc-input-group">
+                  <span className="input-group-text">
                     <Key size={16} />
                   </span>
                   <input
@@ -242,7 +227,7 @@ export const WorkspaceActionModal: React.FC<WorkspaceActionModalProps> = ({
               <div className="d-flex justify-content-end gap-2 pt-2">
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm px-3"
+                  className="pc-action-btn-secondary"
                   onClick={onClose}
                   disabled={isSubmitting}
                 >
@@ -250,10 +235,11 @@ export const WorkspaceActionModal: React.FC<WorkspaceActionModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-success btn-sm px-3"
+                  className="pc-action-btn-success"
                   disabled={isSubmitting || !inviteCode.trim()}
                 >
-                  {isSubmitting ? 'Joining...' : 'Join Workspace'}
+                  <LogIn size={16} />
+                  <span>{isSubmitting ? 'Joining...' : 'Join Workspace'}</span>
                 </button>
               </div>
             </form>

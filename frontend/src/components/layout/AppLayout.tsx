@@ -12,7 +12,7 @@ import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { joinChannel, joinWorkspace } from '../../services/signalr';
-import { Plus, LogIn, Users } from 'lucide-react';
+import { Plus, LogIn, Users, Menu, Sparkles } from 'lucide-react';
 
 export const AppLayout: React.FC = () => {
   // Members open by default on desktop (>=1024px), closed on smaller screens
@@ -155,46 +155,75 @@ export const AppLayout: React.FC = () => {
       {/* 3. Center Chat Canvas or Onboarding Empty State */}
       <div className="chat-main">
         {hasNoWorkspaces ? (
-          <div className="d-flex align-items-center justify-content-center h-100 p-4">
-            <div className="text-center" style={{ maxWidth: '460px' }}>
-              <div
-                className="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
-                style={{
-                  width: '64px',
-                  height: '64px',
-                  backgroundColor: 'rgba(88, 101, 242, 0.15)',
-                  color: 'var(--pc-primary)',
-                }}
+          <div className="d-flex flex-column h-100 position-relative w-100">
+            {/* Mobile Header Bar when no workspaces exist (< 768px) */}
+            <div
+              className="d-flex d-md-none align-items-center px-3 py-2 border-bottom border-dark"
+              style={{ minHeight: '52px', backgroundColor: 'var(--pc-bg-subnav)' }}
+            >
+              <button
+                type="button"
+                className="btn btn-dark btn-sm p-1 text-secondary me-2 d-flex align-items-center justify-content-center"
+                style={{ width: '32px', height: '32px', borderRadius: '6px' }}
+                onClick={() => setIsNavOpen(true)}
+                title="Open Navigation"
+                aria-label="Open Navigation"
               >
-                <Users size={32} />
-              </div>
-              <h4 className="fw-bold text-white mb-2">Welcome to PulseChat!</h4>
-              <p className="text-secondary small mb-4">
-                To start chatting, create your own workspace or join an existing one using an invite code.
-              </p>
-              <div className="d-flex justify-content-center gap-3">
-                <button
-                  type="button"
-                  className="btn btn-primary d-flex align-items-center gap-2 px-3"
-                  onClick={() => {
-                    setModalTab('create');
-                    setIsActionModalOpen(true);
-                  }}
-                >
-                  <Plus size={16} />
-                  <span>Create Workspace</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-light d-flex align-items-center gap-2 px-3"
-                  onClick={() => {
-                    setModalTab('join');
-                    setIsActionModalOpen(true);
-                  }}
-                >
-                  <LogIn size={16} />
-                  <span>Join with Code</span>
-                </button>
+                <Menu size={18} />
+              </button>
+              <span className="fw-bold text-white small">PulseChat</span>
+            </div>
+
+            <div className="d-flex align-items-center justify-content-center flex-grow-1 p-3 p-sm-4">
+              <div className="onboarding-card">
+                <div className="onboarding-card-body">
+                  <div className="onboarding-icon-badge" title="PulseChat">
+                    <Users size={34} strokeWidth={2.2} />
+                  </div>
+
+                  <div>
+                    <span className="onboarding-kicker">
+                      <Sparkles size={12} className="me-1" />
+                      Get Started
+                    </span>
+                  </div>
+
+                  <h2 className="onboarding-title">Welcome to PulseChat!</h2>
+
+                  <p className="onboarding-subtitle">
+                    To start chatting, create your own workspace or join an existing community using an invite code.
+                  </p>
+
+                  <div className="d-flex flex-column flex-sm-row justify-content-center gap-3">
+                    <button
+                      type="button"
+                      className="onboarding-btn-primary"
+                      onClick={() => {
+                        setModalTab('create');
+                        setIsActionModalOpen(true);
+                      }}
+                    >
+                      <Plus size={18} />
+                      <span>Create Workspace</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="onboarding-btn-join"
+                      onClick={() => {
+                        setModalTab('join');
+                        setIsActionModalOpen(true);
+                      }}
+                    >
+                      <LogIn size={18} />
+                      <span>Join with Code</span>
+                    </button>
+                  </div>
+
+                  <div className="onboarding-footer-note">
+                    <span>💡</span>
+                    <span>You can switch or add workspaces anytime from the left dock.</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
