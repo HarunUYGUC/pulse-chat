@@ -431,6 +431,39 @@ body {
   background-color: var(--pc-bg-hover);
 }
 
+/* Hover-only moderation actions in MembersSidebar */
+.member-item .member-actions {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease-in-out;
+}
+
+.member-item:hover .member-actions,
+.member-item:focus-within .member-actions,
+.member-item .member-actions.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.member-action-btn {
+  border-radius: 4px;
+  line-height: 1;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+  opacity: 0.8;
+}
+
+.member-action-btn:hover {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+@media (hover: none) {
+  .member-item .member-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 /* Status Indicator Dot */
 .status-indicator {
   width: 10px;

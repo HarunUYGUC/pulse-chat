@@ -220,13 +220,13 @@ export const MembersSidebar: React.FC<MembersSidebarProps> = ({ isOpen = true })
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="d-flex align-items-center gap-1">
+              {/* Action Buttons (visible on hover) */}
+              <div className={`member-actions d-flex align-items-center gap-1 ${roleActionLoading === member.id ? 'active' : ''}`}>
                 {/* Promote / Demote Moderator (Only Channel Leader) */}
                 {canChangeRoleThisMember && (
                   <button
                     type="button"
-                    className="btn btn-sm btn-link p-1 text-secondary opacity-75 hover-opacity-100 flex-shrink-0"
+                    className="btn btn-sm btn-link p-1 text-secondary member-action-btn flex-shrink-0"
                     title={isTargetModerator ? 'Dismiss Moderator' : 'Make Moderator'}
                     disabled={roleActionLoading === member.id}
                     onClick={(e) => {
@@ -246,7 +246,7 @@ export const MembersSidebar: React.FC<MembersSidebarProps> = ({ isOpen = true })
                 {canKickThisMember && (
                   <button
                     type="button"
-                    className="btn btn-sm btn-link p-1 text-secondary opacity-75 hover-opacity-100 flex-shrink-0"
+                    className="btn btn-sm btn-link p-1 text-secondary member-action-btn flex-shrink-0"
                     title={`Remove @${member.username} from #${activeChannel.name}`}
                     onClick={(e) => {
                       e.stopPropagation();
