@@ -199,6 +199,56 @@ public class ChatHub : Hub
             Reactions = new()
         };
 
+        if (channel.IsDirectMessage)
+        {
+            var dmMembers = await _db.ChannelMembers
+                .Include(cm => cm.User)
+                .Where(cm => cm.ChannelId == channel.Id)
+                .ToListAsync();
+
+            bool anyChanged = false;
+            foreach (var m in dmMembers)
+            {
+                if (m.IsClosed)
+                {
+                    m.IsClosed = false;
+                    anyChanged = true;
+                }
+            }
+            if (anyChanged)
+            {
+                await _db.SaveChangesAsync();
+            }
+
+            foreach (var m in dmMembers)
+            {
+                var otherMember = dmMembers.FirstOrDefault(x => x.UserId != m.UserId)?.User;
+                var dmDto = new ChannelDto
+                {
+                    Id = channel.Id,
+                    Name = otherMember != null ? otherMember.Username : channel.Name,
+                    Type = "text",
+                    IsDirectMessage = true,
+                    IsPrivate = true,
+                    CreatedAt = channel.CreatedAt,
+                    Members = dmMembers.Select(x => new UserDto
+                    {
+                        Id = x.User.Id,
+                        Username = x.User.Username,
+                        Email = x.User.Email,
+                        AvatarUrl = x.User.AvatarUrl,
+                        CreatedAt = x.User.CreatedAt,
+                        IsOnline = _presenceTracker.IsUserOnline(x.User.Username),
+                        Role = x.Role
+                    }).ToList(),
+                    LastMessage = resultDto
+                };
+
+                await Clients.Group($"user-{m.UserId}").SendAsync("ChannelCreated", dmDto);
+                await Clients.Group($"user-{m.UserId}").SendAsync("ReceiveMessage", resultDto);
+            }
+        }
+
         // Broadcast to everyone in channel
         await Clients.Group($"channel-{messageDto.ChannelId}").SendAsync("ReceiveMessage", resultDto);
     }

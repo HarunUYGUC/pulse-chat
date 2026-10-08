@@ -87,11 +87,13 @@ public class ChannelsController : ControllerBase
             .Distinct()
             .ToListAsync();
 
-        // 1. Get channels where current user is a member, scoped to valid workspaces (or mutual DMs)
+        // 1. Get channels where current user is a member, scoped to valid workspaces (or mutual DMs with messages and not closed)
         var userChannels = await _db.Channels
-            .Where(c => c.Members.Any(m => m.UserId == currentUserId) &&
-                       ((c.WorkspaceId.HasValue && validWorkspaceIds.Contains(c.WorkspaceId.Value)) ||
-                        (c.IsDirectMessage && c.Members.Any(m => mutualUserIds.Contains(m.UserId)))))
+            .Where(c =>
+                (!c.IsDirectMessage && c.WorkspaceId.HasValue && validWorkspaceIds.Contains(c.WorkspaceId.Value) && c.Members.Any(m => m.UserId == currentUserId))
+                ||
+                (c.IsDirectMessage && c.Members.Any(m => m.UserId == currentUserId && !m.IsClosed) && c.Members.Any(m => mutualUserIds.Contains(m.UserId)) && _db.Messages.Any(msg => msg.ChannelId == c.Id))
+            )
             .Include(c => c.Owner)
             .Include(c => c.Workspace)
                 .ThenInclude(w => w.Owner)
@@ -1068,6 +1070,13 @@ public class ChannelsController : ControllerBase
 
         if (existingDm != null)
         {
+            var myMember = existingDm.Members.FirstOrDefault(m => m.UserId == currentUserId);
+            if (myMember != null && myMember.IsClosed)
+            {
+                myMember.IsClosed = false;
+                await _db.SaveChangesAsync();
+            }
+
             var lastMsg = await _db.Messages
                 .Where(m => m.ChannelId == existingDm.Id)
                 .Include(m => m.Sender)
@@ -1092,8 +1101,8 @@ public class ChannelsController : ControllerBase
         await _db.SaveChangesAsync();
 
         _db.ChannelMembers.AddRange(
-            new ChannelMember { ChannelId = dmChannel.Id, UserId = currentUserId, JoinedAt = DateTime.UtcNow },
-            new ChannelMember { ChannelId = dmChannel.Id, UserId = dto.TargetUserId, JoinedAt = DateTime.UtcNow }
+            new ChannelMember { ChannelId = dmChannel.Id, UserId = currentUserId, JoinedAt = DateTime.UtcNow, IsClosed = false },
+            new ChannelMember { ChannelId = dmChannel.Id, UserId = dto.TargetUserId, JoinedAt = DateTime.UtcNow, IsClosed = false }
         );
         await _db.SaveChangesAsync();
 
@@ -1104,13 +1113,49 @@ public class ChannelsController : ControllerBase
             .FirstAsync(c => c.Id == dmChannel.Id);
 
         var dtoForCreator = MapToDto(created, currentUserId, null);
-        var dtoForTarget = MapToDto(created, dto.TargetUserId, null);
 
-        // Notify both participants in real-time
-        await _hubContext.Clients.Group($"user-{currentUserId}").SendAsync("ChannelCreated", dtoForCreator);
-        await _hubContext.Clients.Group($"user-{dto.TargetUserId}").SendAsync("ChannelCreated", dtoForTarget);
-
+        // NOTE: We do not broadcast ChannelCreated to target user yet.
+        // Target user will be notified in real-time when the first message is sent!
         return Ok(dtoForCreator);
+    }
+
+    [HttpPost("{id}/close-dm")]
+    public async Task<IActionResult> CloseDm(int id)
+    {
+        var currentUserId = GetCurrentUserId();
+        var channel = await _db.Channels
+            .Include(c => c.Members)
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (channel == null)
+            return NotFound(new { message = "Channel not found." });
+
+        if (!channel.IsDirectMessage)
+            return BadRequest(new { message = "Only direct messages can be closed." });
+
+        var member = channel.Members.FirstOrDefault(m => m.UserId == currentUserId);
+        if (member == null)
+            return StatusCode(403, new { message = "You are not a member of this direct message." });
+
+        var hasMessages = await _db.Messages.AnyAsync(m => m.ChannelId == id);
+
+        if (!hasMessages)
+        {
+            // Empty ghost DM: cleanly delete channel and memberships from database
+            _db.ChannelMembers.RemoveRange(channel.Members);
+            _db.Channels.Remove(channel);
+            await _db.SaveChangesAsync();
+
+            return Ok(new { success = true, deleted = true });
+        }
+        else
+        {
+            // DM has chat history: hide for current user while preserving history in DB
+            member.IsClosed = true;
+            await _db.SaveChangesAsync();
+
+            return Ok(new { success = true, closed = true });
+        }
     }
 
     private int GetCurrentUserId()

@@ -109,6 +109,7 @@ using (var scope = app.Services.CreateScope())
     EnsureColumnExists(db, "ChannelMembers", "LastReadMessageId", "INTEGER NULL");
     EnsureColumnExists(db, "ChannelMembers", "LastReadAt", "TEXT NULL");
     EnsureColumnExists(db, "ChannelMembers", "Role", "TEXT NOT NULL DEFAULT 'Member'");
+    EnsureColumnExists(db, "ChannelMembers", "IsClosed", "INTEGER NOT NULL DEFAULT 0");
 
     try
     {

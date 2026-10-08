@@ -22,6 +22,7 @@ interface ChatState {
   removeChannel: (channelId: number) => void;
   deleteChannel: (channelId: number) => Promise<void>;
   leaveChannel: (channelId: number) => Promise<void>;
+  closeDm: (channelId: number) => Promise<void>;
   kickMember: (channelId: number, userId: number) => Promise<void>;
   joinChannelById: (channelId: number) => Promise<{ isPending?: boolean; message?: string }>;
   inviteMembers: (channelId: number, userIds: number[]) => Promise<void>;
@@ -127,6 +128,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   leaveChannel: async (channelId: number) => {
     await api.post(`/channels/${channelId}/leave`);
+    await signalrLeave(channelId);
+    get().removeChannel(channelId);
+  },
+
+  closeDm: async (channelId: number) => {
+    try {
+      await api.post(`/channels/${channelId}/close-dm`);
+    } catch (err) {
+      console.error('Failed to close DM:', err);
+    }
     await signalrLeave(channelId);
     get().removeChannel(channelId);
   },

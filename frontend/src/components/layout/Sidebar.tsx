@@ -12,6 +12,7 @@ import {
   Volume2,
   MicOff,
   VolumeX,
+  X,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useChatStore } from '../../store/chatStore';
@@ -49,6 +50,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ onChannelSelect }) => {
     setActiveChannel,
     unreadCounts,
     onlineUsers,
+    messages,
+    closeDm,
   } = useChatStore();
   const { workspaces, activeWorkspaceId, leaveWorkspace } = useWorkspaceStore();
   const {
@@ -85,7 +88,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onChannelSelect }) => {
   const voiceChannels = channels.filter(
     (c) => !c.IsDirectMessage && !c.isDirectMessage && c.type === 'voice'
   );
-  const dmChannels = channels.filter((c) => c.IsDirectMessage || c.isDirectMessage);
+  const dmChannels = channels.filter((c) => {
+    if (!c.IsDirectMessage && !c.isDirectMessage) return false;
+    const isActive = activeChannelId === c.id;
+    const hasUnread = (unreadCounts[c.id] || 0) > 0;
+    const hasLastMessage = Boolean(c.lastMessage);
+    const hasLocalMessages = Boolean(messages[c.id] && messages[c.id].length > 0);
+    return isActive || hasUnread || hasLastMessage || hasLocalMessages;
+  });
 
   return (
     <>
@@ -463,6 +473,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ onChannelSelect }) => {
                       {displayName}
                     </span>
                     {unread > 0 && <span className="pc-badge-unread">{unread}</span>}
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-link p-0 close-dm-btn flex-shrink-0"
+                      title="Close DM"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        closeDm(dm.id);
+                      }}
+                    >
+                      <X size={15} />
+                    </button>
                   </div>
                 );
               })
