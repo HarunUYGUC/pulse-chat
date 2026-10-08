@@ -156,20 +156,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ onChannelSelect }) => {
             >
               <button
                 type="button"
-                className="dropdown-item d-flex align-items-center gap-2 px-3 py-2 small text-white border-0 bg-transparent w-100"
+                className="workspace-menu-item invite-item"
                 onClick={() => {
                   setIsWsMenuOpen(false);
                   setIsInviteModalOpen(true);
                 }}
               >
-                <UserPlus size={16} className="text-primary" />
+                <UserPlus size={16} className="text-primary flex-shrink-0" />
                 <span>Invite People</span>
               </button>
 
               {!isOwner && (
                 <button
                   type="button"
-                  className="dropdown-item d-flex align-items-center gap-2 px-3 py-2 small text-warning border-0 bg-transparent w-100"
+                  className="workspace-menu-item leave-item"
                   onClick={async () => {
                     setIsWsMenuOpen(false);
                     if (window.confirm(`Are you sure you want to leave ${activeWorkspace.name}?`)) {
@@ -177,7 +177,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onChannelSelect }) => {
                     }
                   }}
                 >
-                  <LogOut size={16} />
+                  <LogOut size={16} className="flex-shrink-0" />
                   <span>Leave Workspace</span>
                 </button>
               )}
@@ -187,13 +187,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onChannelSelect }) => {
                   <div className="dropdown-divider my-1 border-secondary opacity-25" />
                   <button
                     type="button"
-                    className="dropdown-item d-flex align-items-center gap-2 px-3 py-2 small text-danger border-0 bg-transparent w-100"
+                    className="workspace-menu-item delete-item"
                     onClick={() => {
                       setIsWsMenuOpen(false);
                       setIsDeleteModalOpen(true);
                     }}
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={16} className="flex-shrink-0" />
                     <span>Delete Workspace</span>
                   </button>
                 </>
@@ -210,7 +210,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onChannelSelect }) => {
             <div className="d-flex align-items-center gap-1">
               <button
                 type="button"
-                className="btn btn-sm btn-link p-0 text-secondary"
+                className="sidebar-action-btn"
                 title="Browse Channels"
                 onClick={() => setIsBrowseModalOpen(true)}
               >
@@ -218,7 +218,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onChannelSelect }) => {
               </button>
               <button
                 type="button"
-                className="btn btn-sm btn-link p-0 text-secondary"
+                className="sidebar-action-btn"
                 title="Create Text Channel"
                 onClick={() => {
                   setChannelModalType('text');
@@ -281,7 +281,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onChannelSelect }) => {
             <span>Voice Channels</span>
             <button
               type="button"
-              className="btn btn-sm btn-link p-0 text-secondary"
+              className="sidebar-action-btn"
               title="Create Voice Channel"
               onClick={() => {
                 setChannelModalType('voice');
@@ -416,7 +416,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onChannelSelect }) => {
             <span>Direct Messages</span>
             <button
               type="button"
-              className="btn btn-sm btn-link p-0 text-secondary"
+              className="sidebar-action-btn"
               title="New Direct Message"
               onClick={() => setIsDmModalOpen(true)}
             >
@@ -529,7 +529,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onChannelSelect }) => {
           <div className="d-flex align-items-center gap-1">
             <button
               type="button"
-              className="btn btn-sm btn-link text-secondary p-1"
+              className="sidebar-footer-btn"
               title="Profile Settings"
               onClick={() => setIsProfileModalOpen(true)}
             >
@@ -537,7 +537,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onChannelSelect }) => {
             </button>
             <button
               type="button"
-              className="btn btn-sm btn-link text-secondary p-1"
+              className="sidebar-footer-btn logout-btn"
               title="Log Out"
               onClick={logout}
             >

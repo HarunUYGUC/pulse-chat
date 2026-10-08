@@ -69,19 +69,30 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isUnread }) =
 
   const { user } = useAuthStore();
 
-  // Close emoji popover on click outside
+  // Close emoji popover on click outside or Escape
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    if (!showEmojiMenu) return;
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowEmojiMenu(false);
       }
     };
 
-    if (showEmojiMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowEmojiMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [showEmojiMenu]);
 
@@ -148,8 +159,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isUnread }) =
             <button
               key={emoji}
               type="button"
-              className="btn btn-sm btn-link p-1 text-decoration-none"
-              style={{ fontSize: '0.95rem', lineHeight: 1 }}
+              className="message-action-emoji"
               onClick={() => handleToggleReaction(emoji)}
               title={`React with ${emoji}`}
             >
@@ -160,7 +170,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isUnread }) =
           <div className="position-relative">
             <button
               type="button"
-              className="btn btn-sm btn-link p-1 text-secondary d-flex align-items-center"
+              className={`message-action-btn ${showEmojiMenu ? 'active' : ''}`}
               onClick={() => setShowEmojiMenu(!showEmojiMenu)}
               title="Add Reaction"
             >
@@ -168,22 +178,14 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isUnread }) =
             </button>
 
             {showEmojiMenu && (
-              <div
-                className="position-absolute end-0 bottom-100 mb-2 p-2 rounded shadow-lg d-flex flex-wrap gap-1"
-                style={{
-                  backgroundColor: '#1e1f22',
-                  border: '1px solid #383a40',
-                  width: '160px',
-                  zIndex: 100,
-                }}
-              >
+              <div className="reaction-picker-popup">
                 {COMMON_EMOJIS.map((emoji) => (
                   <button
                     key={emoji}
                     type="button"
-                    className="btn btn-sm btn-link p-1 text-decoration-none"
-                    style={{ fontSize: '1.2rem', lineHeight: 1 }}
+                    className="reaction-picker-emoji"
                     onClick={() => handleToggleReaction(emoji)}
+                    title={`React with ${emoji}`}
                   >
                     {emoji}
                   </button>

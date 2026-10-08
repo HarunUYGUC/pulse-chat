@@ -255,14 +255,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                     {isPrivate && (
                       <button
                         type="button"
-                        className="btn btn-sm w-100 text-start d-flex align-items-center gap-2 py-1 px-2 text-primary hover-white"
-                        style={{ background: 'none', border: 'none' }}
+                        className="channel-menu-item primary-item"
                         onClick={() => {
                           setShowMenu(false);
                           setShowInviteModal(true);
                         }}
                       >
-                        <UserPlus size={14} />
+                        <UserPlus size={14} className="flex-shrink-0" />
                         <span className="small">Add Members</span>
                       </button>
                     )}
@@ -270,14 +269,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                     {!isDm && isOwner && !isProtected && (
                       <button
                         type="button"
-                        className="btn btn-sm w-100 text-start d-flex align-items-center gap-2 py-1 px-2 text-secondary hover-white"
-                        style={{ background: 'none', border: 'none' }}
+                        className="channel-menu-item secondary-item"
                         onClick={() => {
                           setShowMenu(false);
                           setShowEditModal(true);
                         }}
                       >
-                        <Edit3 size={14} />
+                        <Edit3 size={14} className="flex-shrink-0" />
                         <span className="small">Edit Description</span>
                       </button>
                     )}
@@ -285,11 +283,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                     {!isOwner && !isProtected && (
                       <button
                         type="button"
-                        className="btn btn-sm w-100 text-start d-flex align-items-center gap-2 py-1 px-2 text-secondary hover-white"
-                        style={{ background: 'none', border: 'none' }}
+                        className="channel-menu-item warning-item"
                         onClick={handleLeave}
                       >
-                        <LogOut size={14} />
+                        <LogOut size={14} className="flex-shrink-0" />
                         <span className="small">Leave Channel</span>
                       </button>
                     )}
@@ -297,14 +294,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                     {isOwner && !isProtected && (
                       <button
                         type="button"
-                        className="btn btn-sm w-100 text-start d-flex align-items-center gap-2 py-1 px-2 text-danger"
-                        style={{ background: 'none', border: 'none' }}
+                        className="channel-menu-item danger-item"
                         onClick={() => {
                           setShowMenu(false);
                           setShowDeleteModal(true);
                         }}
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={14} className="flex-shrink-0" />
                         <span className="small fw-semibold">Delete Channel</span>
                       </button>
                     )}

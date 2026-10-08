@@ -19,6 +19,41 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
+  const emojiBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  // Close emoji picker when clicking outside or pressing Escape
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(target) &&
+        emojiBtnRef.current &&
+        !emojiBtnRef.current.contains(target)
+      ) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showEmojiPicker]);
 
   useEffect(() => {
     // Focus textarea on desktop, avoid mobile keyboard jump & scroll on touch devices
@@ -87,21 +122,16 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       <div className="chat-input-box position-relative">
         {showEmojiPicker && (
           <div
-            className="position-absolute bottom-100 start-0 mb-2 p-2 rounded shadow-lg d-flex flex-wrap gap-2"
-            style={{
-              backgroundColor: '#1e1f22',
-              border: '1px solid #383a40',
-              maxWidth: '280px',
-              zIndex: 20,
-            }}
+            ref={emojiPickerRef}
+            className="emoji-picker-popup"
           >
             {QUICK_EMOJIS.map((emoji) => (
               <button
                 key={emoji}
                 type="button"
-                className="btn btn-sm btn-link p-1 text-decoration-none"
-                style={{ fontSize: '1.25rem' }}
+                className="quick-emoji-btn"
                 onClick={() => addEmoji(emoji)}
+                title={emoji}
               >
                 {emoji}
               </button>
@@ -122,9 +152,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         <div className="d-flex align-items-center justify-content-between pt-1 border-top" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
           <div className="d-flex align-items-center gap-1">
             <button
+              ref={emojiBtnRef}
               type="button"
-              className="btn btn-sm btn-link p-1 text-secondary"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              className={`emoji-trigger-btn ${showEmojiPicker ? 'active' : ''}`}
+              onClick={() => setShowEmojiPicker((prev) => !prev)}
               title="Insert Emoji"
             >
               <Smile size={18} />

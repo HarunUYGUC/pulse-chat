@@ -180,6 +180,176 @@ body {
   border-top: 1px solid rgba(0, 0, 0, 0.2);
 }
 
+/* Sidebar Action Buttons (+, Browse Channels, New DM) */
+.sidebar-action-btn {
+  color: var(--pc-text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+}
+
+.sidebar-action-btn:hover {
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-action-btn:active {
+  transform: scale(0.92);
+}
+
+/* Sidebar Footer Buttons (Settings, Logout) */
+.sidebar-footer-btn {
+  color: var(--pc-text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+}
+
+.sidebar-footer-btn:hover {
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-footer-btn:active {
+  transform: scale(0.92);
+}
+
+.sidebar-footer-btn.logout-btn:hover {
+  color: #f23f43 !important;
+  background-color: rgba(242, 63, 67, 0.12);
+}
+
+/* Workspace Dropdown Menu Items */
+.workspace-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  text-align: left;
+}
+
+.workspace-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff !important;
+}
+
+.workspace-menu-item.invite-item {
+  color: #ffffff;
+}
+
+.workspace-menu-item.invite-item:hover {
+  background-color: #5865f2;
+  color: #ffffff !important;
+}
+
+.workspace-menu-item.invite-item:hover svg {
+  color: #ffffff !important;
+}
+
+.workspace-menu-item.leave-item {
+  color: #f0b232;
+}
+
+.workspace-menu-item.leave-item:hover {
+  background-color: rgba(240, 178, 50, 0.15);
+  color: #ffd166 !important;
+}
+
+.workspace-menu-item.delete-item {
+  color: #f23f43;
+}
+
+.workspace-menu-item.delete-item:hover {
+  background-color: #da373c;
+  color: #ffffff !important;
+}
+
+/* ChatHeader & Channel Dropdown Menu Items */
+.channel-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  text-align: left;
+}
+
+.channel-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff !important;
+}
+
+.channel-menu-item.primary-item {
+  color: #5865f2;
+}
+
+.channel-menu-item.primary-item:hover {
+  background-color: #5865f2;
+  color: #ffffff !important;
+}
+
+.channel-menu-item.primary-item:hover svg {
+  color: #ffffff !important;
+}
+
+.channel-menu-item.secondary-item {
+  color: var(--pc-text-muted);
+}
+
+.channel-menu-item.secondary-item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff !important;
+}
+
+.channel-menu-item.warning-item {
+  color: #f0b232;
+}
+
+.channel-menu-item.warning-item:hover {
+  background-color: rgba(240, 178, 50, 0.15);
+  color: #ffd166 !important;
+}
+
+.channel-menu-item.danger-item {
+  color: #f23f43;
+}
+
+.channel-menu-item.danger-item:hover {
+  background-color: #da373c;
+  color: #ffffff !important;
+}
+
 /* Chat Main Area */
 .chat-main {
   flex: 1;
@@ -245,6 +415,90 @@ body {
 
 .chat-input-textarea::placeholder {
   color: var(--pc-text-muted);
+}
+
+/* MessageInput Emoji Trigger Button */
+.emoji-trigger-btn {
+  color: var(--pc-text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+}
+
+.emoji-trigger-btn:hover {
+  color: #f6c445 !important;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.emoji-trigger-btn.active {
+  color: #f6c445 !important;
+  background-color: rgba(246, 196, 69, 0.15);
+}
+
+.emoji-trigger-btn:active {
+  transform: scale(0.92);
+}
+
+/* Quick Emoji Picker Popup & Buttons */
+@keyframes pcFadeInScale {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.emoji-picker-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background-color: #1e1f22;
+  border: 1px solid #383a40;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  max-width: 290px;
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  animation: pcFadeInScale 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.quick-emoji-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), background-color 0.12s ease;
+}
+
+.quick-emoji-btn:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  transform: scale(1.22);
+}
+
+.quick-emoji-btn:active {
+  transform: scale(0.95);
 }
 
 /* Message Item */
@@ -365,6 +619,105 @@ body {
   margin-top: 2px;
 }
 
+/* Floating Action Button (Add Reaction) */
+.message-action-btn {
+  color: var(--pc-text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+}
+
+.message-action-btn:hover {
+  color: #f6c445 !important;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.message-action-btn.active {
+  color: #f6c445 !important;
+  background-color: rgba(246, 196, 69, 0.18);
+}
+
+.message-action-btn:active {
+  transform: scale(0.92);
+}
+
+/* Quick Emojis beside the Add Reaction button */
+.message-action-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), background-color 0.12s ease;
+}
+
+.message-action-emoji:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  transform: scale(1.25);
+}
+
+.message-action-emoji:active {
+  transform: scale(0.92);
+}
+
+/* Reaction Picker Popup & Emojis inside */
+.reaction-picker-popup {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  padding: 6px;
+  border-radius: 8px;
+  background-color: #1e1f22;
+  border: 1px solid #383a40;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  width: 168px;
+  z-index: 100;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  animation: pcFadeInScale 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reaction-picker-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), background-color 0.12s ease;
+}
+
+.reaction-picker-emoji:hover {
+  background-color: rgba(255, 255, 255, 0.14);
+  transform: scale(1.24);
+}
+
+.reaction-picker-emoji:active {
+  transform: scale(0.94);
+}
+
 /* Reaction Pills */
 .reaction-pill {
   background-color: #2b2d31;
@@ -384,6 +737,11 @@ body {
 .reaction-pill:hover {
   background-color: #35373c;
   border-color: #4e5058;
+  transform: scale(1.05);
+}
+
+.reaction-pill:active {
+  transform: scale(0.96);
 }
 
 .reaction-pill.user-reacted {
@@ -391,6 +749,12 @@ body {
   border-color: var(--pc-primary);
   color: #ffffff;
   font-weight: 600;
+}
+
+.reaction-pill.user-reacted:hover {
+  background-color: rgba(88, 101, 242, 0.32);
+  border-color: #7983f5;
+  transform: scale(1.05);
 }
 
 /* Right Members Sidebar */
