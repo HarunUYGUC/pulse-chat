@@ -358,6 +358,20 @@ using (var scope = app.Services.CreateScope())
         ");
     }
     catch { }
+
+    // Clean up any stale kick records for users who are currently active members of the channel
+    try
+    {
+        db.Database.ExecuteSqlRaw(@"
+            DELETE FROM ""ChannelKickRecords""
+            WHERE EXISTS (
+                SELECT 1 FROM ""ChannelMembers"" cm
+                WHERE cm.""ChannelId"" = ""ChannelKickRecords"".""ChannelId""
+                  AND cm.""UserId"" = ""ChannelKickRecords"".""UserId""
+            );
+        ");
+    }
+    catch { }
 }
 
 if (app.Environment.IsDevelopment())

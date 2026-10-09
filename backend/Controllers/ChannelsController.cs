@@ -999,6 +999,24 @@ public class ChannelsController : ControllerBase
                 JoinedAt = DateTime.UtcNow
             });
         }
+
+        // Clear any previous kick records and pending join requests for the invited users so they can participate freely
+        var staleKicks = await _db.ChannelKickRecords
+            .Where(k => k.ChannelId == channel.Id && newMemberIds.Contains(k.UserId))
+            .ToListAsync();
+        if (staleKicks.Count > 0)
+        {
+            _db.ChannelKickRecords.RemoveRange(staleKicks);
+        }
+
+        var staleRequests = await _db.ChannelJoinRequests
+            .Where(r => r.ChannelId == channel.Id && newMemberIds.Contains(r.UserId))
+            .ToListAsync();
+        if (staleRequests.Count > 0)
+        {
+            _db.ChannelJoinRequests.RemoveRange(staleRequests);
+        }
+
         await _db.SaveChangesAsync();
 
         // Reload members
