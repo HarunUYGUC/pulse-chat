@@ -35,8 +35,21 @@ public class MessagesController : ControllerBase
         if (channel == null)
             return NotFound(new { message = "Channel not found." });
 
+        if (channel.WorkspaceId.HasValue)
+        {
+            var isWorkspaceMember = await _db.WorkspaceMembers
+                .AnyAsync(wm => wm.WorkspaceId == channel.WorkspaceId.Value && wm.UserId == currentUserId);
+            if (!isWorkspaceMember)
+                return StatusCode(403, new { message = "You must be a member of this workspace to access this channel's messages." });
+        }
+
+        var isKicked = await _db.ChannelKickRecords
+            .AnyAsync(k => k.ChannelId == channelId && k.UserId == currentUserId);
+        if (isKicked)
+            return StatusCode(403, new { message = "You have been removed from this channel." });
+
         if ((channel.IsDirectMessage || channel.IsPrivate) && !channel.Members.Any(m => m.UserId == currentUserId))
-            return Forbid();
+            return StatusCode(403, new { message = "You do not have permission to view messages in this channel." });
 
         var query = _db.Messages
             .Where(m => m.ChannelId == channelId);

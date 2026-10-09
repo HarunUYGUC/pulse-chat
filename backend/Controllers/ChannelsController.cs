@@ -233,8 +233,21 @@ public class ChannelsController : ControllerBase
         if (channel == null)
             return NotFound(new { message = "Channel not found." });
 
+        if (channel.WorkspaceId.HasValue)
+        {
+            var isWorkspaceMember = await _db.WorkspaceMembers
+                .AnyAsync(wm => wm.WorkspaceId == channel.WorkspaceId.Value && wm.UserId == currentUserId);
+            if (!isWorkspaceMember)
+                return StatusCode(403, new { message = "You must be a member of this workspace to access this channel." });
+        }
+
+        var isKicked = await _db.ChannelKickRecords
+            .AnyAsync(k => k.ChannelId == id && k.UserId == currentUserId);
+        if (isKicked)
+            return StatusCode(403, new { message = "You have been removed from this channel." });
+
         if ((channel.IsDirectMessage || channel.IsPrivate) && !channel.Members.Any(m => m.UserId == currentUserId))
-            return Forbid();
+            return StatusCode(403, new { message = "You do not have permission to view this channel." });
 
         var lastMessage = await _db.Messages
             .Where(m => m.ChannelId == id)
@@ -381,6 +394,14 @@ public class ChannelsController : ControllerBase
 
         if (channel.IsDirectMessage)
             return BadRequest(new { message = "Cannot join a direct message." });
+
+        if (channel.WorkspaceId.HasValue)
+        {
+            var isWorkspaceMember = await _db.WorkspaceMembers
+                .AnyAsync(wm => wm.WorkspaceId == channel.WorkspaceId.Value && wm.UserId == currentUserId);
+            if (!isWorkspaceMember)
+                return StatusCode(403, new { message = "You must be a member of this workspace to join this channel." });
+        }
 
         if (channel.IsPrivate && !channel.Members.Any(m => m.UserId == currentUserId))
             return Forbid();
@@ -954,6 +975,15 @@ public class ChannelsController : ControllerBase
 
         var existingMemberIds = channel.Members.Select(m => m.UserId).ToHashSet();
         var newMemberIds = dto.UserIds.Distinct().Where(uid => !existingMemberIds.Contains(uid)).ToList();
+
+        if (channel.WorkspaceId.HasValue)
+        {
+            var workspaceUserIds = await _db.WorkspaceMembers
+                .Where(wm => wm.WorkspaceId == channel.WorkspaceId.Value && newMemberIds.Contains(wm.UserId))
+                .Select(wm => wm.UserId)
+                .ToListAsync();
+            newMemberIds = newMemberIds.Intersect(workspaceUserIds).ToList();
+        }
 
         if (newMemberIds.Count == 0)
             return Ok(MapToDto(channel, currentUserId, null));
