@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
-import { MessageSquare, LogIn, UserPlus, Zap } from 'lucide-react';
+import { MessageSquare, LogIn, UserPlus } from 'lucide-react';
 
 export const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -60,33 +60,6 @@ export const AuthPage: React.FC = () => {
     }
   };
 
-  // Quick Demo Login Helper for rapid dual-browser / dual-user testing
-  const handleQuickDemo = async (demoUsername: string) => {
-    clearError();
-    setLocalError(null);
-    const demoPassword = 'Password123!';
-    const demoEmail = `${demoUsername.toLowerCase()}@pulsechat.local`;
-
-    try {
-      // Try login first
-      await login({ usernameOrEmail: demoUsername, password: demoPassword });
-    } catch {
-      // If login fails, auto-register demo user
-      try {
-        await register({
-          username: demoUsername,
-          email: demoEmail,
-          password: demoPassword,
-          avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${demoUsername}&backgroundColor=5865f2`,
-          inviteCode: 'PULSE-DEMO',
-        });
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Demo account creation failed.';
-        setLocalError(message);
-      }
-    }
-  };
-
   return (
     <div
       className="w-100 vh-100 overflow-y-auto"
@@ -129,32 +102,6 @@ export const AuthPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Quick Demo Login Buttons */}
-          <div className="mb-4 p-3 rounded" style={{ backgroundColor: '#1e1f22', border: '1px solid #383a40' }}>
-            <div className="d-flex align-items-center gap-1 text-secondary small mb-2 fw-semibold">
-              <Zap size={14} className="text-warning" />
-              <span>Quick Demo Accounts (1-Click Login):</span>
-            </div>
-            <div className="d-flex gap-2">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-light flex-grow-1"
-                onClick={() => handleQuickDemo('Alice')}
-                disabled={isLoading}
-              >
-                Sign in as Alice
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-light flex-grow-1"
-                onClick={() => handleQuickDemo('Bob')}
-                disabled={isLoading}
-              >
-                Sign in as Bob
-              </button>
-            </div>
-          </div>
-
           {(error || localError) && (
             <div className="alert alert-danger py-2 px-3 small border-0 mb-3" role="alert">
               {error || localError}
@@ -170,7 +117,7 @@ export const AuthPage: React.FC = () => {
               <input
                 type="text"
                 className="form-control pc-input"
-                placeholder={isLogin ? 'e.g. Alice or alice@pulsechat.local' : 'Choose a username (min 3 chars)'}
+                placeholder={isLogin ? 'Enter your username or email' : 'Choose a username (min 3 chars)'}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoFocus

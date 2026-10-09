@@ -59,7 +59,6 @@ PulseChat is a production-grade, full-stack real-time messaging and collaboratio
 
 ### 🔐 Security & Persistence
 - **JWT Authentication & BCrypt**: Password hashing with BCrypt and JWT Bearer tokens passed via HTTP Authorization headers and WebSocket query strings.
-- **1-Click Quick Demo Accounts**: Instant "Sign in as Alice" and "Sign in as Bob" buttons for rapid multi-user testing.
 - **Self-Hosted Relational Storage**: Entity Framework Core 9 with SQLite (`pulsechat.db`) — zero cloud cost ($0), with automatic migration and seeding.
 - **Graceful Error Boundaries**: React Error Boundary wrappers preventing blank screens and offering 1-click recovery.
 - **Session & Refresh Resilience**: Active workspace, channel, and JWT token state preserved across page refreshes (F5).
@@ -250,9 +249,9 @@ Scan the QR code with **Expo Go** (Android) or the Camera app (iOS) while connec
 
 ### A. Dual-Browser Test (Web to Web)
 1. Open `http://localhost:5173` in a **Standard Window**:
-   - Click **"Sign in as Alice"** (or create a new account).
+   - Sign in with an account (or create a new account).
 2. Open `http://localhost:5173` in an **Incognito Window** (or another browser):
-   - Click **"Sign in as Bob"**.
+   - Sign in with a second account.
 3. **Test Voice Channels (WebRTC Audio & VAD)**:
    - In both windows, click on **`🔊 general-voice`** (or create a new Voice Channel via the `+` button in the sidebar).
    - Allow microphone permissions in both browsers.
