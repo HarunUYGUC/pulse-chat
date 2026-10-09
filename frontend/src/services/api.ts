@@ -1,7 +1,24 @@
 import axios from 'axios';
 
-export const API_BASE_URL =
-  window.location.origin.includes('5173') ? '/api' : 'http://localhost:5000/api';
+const resolveApiBaseUrl = (): string => {
+  if (import.meta.env.VITE_API_URL) {
+    const raw = import.meta.env.VITE_API_URL.trim();
+    return raw.endsWith('/api') ? raw : `${raw.replace(/\/+$/, '')}/api`;
+  }
+
+  if (typeof window !== 'undefined') {
+    // In local Vite dev environment (port 5173 / localhost)
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return window.location.port === '5173' ? '/api' : 'http://localhost:5000/api';
+    }
+    // In production on any custom domain / cloud host
+    return '/api';
+  }
+
+  return 'http://localhost:5000/api';
+};
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,

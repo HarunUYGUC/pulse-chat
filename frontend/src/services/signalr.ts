@@ -38,9 +38,23 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
     }
   }
 
-  const hubUrl = window.location.origin.includes('5173')
-    ? '/hubs/chat'
-    : 'http://localhost:5000/hubs/chat';
+  const resolveHubUrl = (): string => {
+    if (import.meta.env.VITE_API_URL) {
+      const base = import.meta.env.VITE_API_URL.trim().replace(/\/api\/?$/, '').replace(/\/+$/, '');
+      return `${base}/hubs/chat`;
+    }
+
+    if (typeof window !== 'undefined') {
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return window.location.port === '5173' ? '/hubs/chat' : 'http://localhost:5000/hubs/chat';
+      }
+      return '/hubs/chat';
+    }
+
+    return 'http://localhost:5000/hubs/chat';
+  };
+
+  const hubUrl = resolveHubUrl();
 
   hubConnection = new signalR.HubConnectionBuilder()
     .withUrl(hubUrl, {
