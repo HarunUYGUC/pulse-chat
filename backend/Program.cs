@@ -26,8 +26,36 @@ builder.Services.AddSignalR(options =>
 });
 
 // 4. JWT Authentication
-var jwtSecret = builder.Configuration["JwtSettings:Secret"] 
-    ?? "PulseChatSuperSecretKeyForDevelopmentAndTestingEnvironment2026!#";
+const string devFallbackSecret = "PulseChatDevOnlySecretKey_ForLocalDevelopmentTesting2026_DoNotUseInProd!";
+var jwtSecret = builder.Configuration["JWT_SECRET"]
+    ?? builder.Configuration["JwtSettings:Secret"];
+
+if (string.IsNullOrWhiteSpace(jwtSecret))
+{
+    if (builder.Environment.IsDevelopment())
+    {
+        jwtSecret = devFallbackSecret;
+    }
+    else
+    {
+        throw new InvalidOperationException(
+            "JWT Secret is not configured! Please provide a secure JWT_SECRET environment variable (at least 32 characters) before running in production.");
+    }
+}
+else if (!builder.Environment.IsDevelopment() && jwtSecret.Contains("DevOnly", StringComparison.OrdinalIgnoreCase))
+{
+    throw new InvalidOperationException(
+        "A development JWT Secret is configured in a production environment. You must provide a secure custom JWT_SECRET via environment variables.");
+}
+
+if (jwtSecret.Length < 32)
+{
+    throw new InvalidOperationException("JWT Secret must be at least 32 characters (256 bits) long.");
+}
+
+// Synchronize resolved secret into configuration so TokenService uses the identical key
+builder.Configuration["JwtSettings:Secret"] = jwtSecret;
+
 var jwtIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "PulseChatApi";
 var jwtAudience = builder.Configuration["JwtSettings:Audience"] ?? "PulseChatClient";
 

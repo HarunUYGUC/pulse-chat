@@ -20,7 +20,9 @@ public class TokenService : ITokenService
 
     public string CreateToken(User user)
     {
-        var secret = _config["JwtSettings:Secret"] ?? "PulseChatSuperSecretKeyForDevelopmentAndTestingEnvironment2026!#";
+        var secret = _config["JWT_SECRET"]
+            ?? _config["JwtSettings:Secret"]
+            ?? "PulseChatDevOnlySecretKey_ForLocalDevelopmentTesting2026_DoNotUseInProd!";
         var issuer = _config["JwtSettings:Issuer"] ?? "PulseChatApi";
         var audience = _config["JwtSettings:Audience"] ?? "PulseChatClient";
         var expiryDays = int.TryParse(_config["JwtSettings:ExpiryInDays"], out var days) ? days : 7;
