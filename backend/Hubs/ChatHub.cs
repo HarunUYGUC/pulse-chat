@@ -118,8 +118,42 @@ public class ChatHub : Hub
         await base.OnDisconnectedAsync(exception);
     }
 
+    private async Task<bool> CanUserAccessChannelAsync(int userId, Channel channel)
+    {
+        if (channel.WorkspaceId.HasValue)
+        {
+            var isWsMember = await _db.WorkspaceMembers
+                .AnyAsync(wm => wm.WorkspaceId == channel.WorkspaceId.Value && wm.UserId == userId);
+            if (!isWsMember)
+                return false;
+        }
+
+        var isKicked = await _db.ChannelKickRecords
+            .AnyAsync(k => k.ChannelId == channel.Id && k.UserId == userId);
+        if (isKicked)
+            return false;
+
+        if (channel.IsDirectMessage || channel.IsPrivate)
+        {
+            var isMember = await _db.ChannelMembers
+                .AnyAsync(m => m.ChannelId == channel.Id && m.UserId == userId);
+            if (!isMember)
+                return false;
+        }
+
+        return true;
+    }
+
     public async Task JoinChannel(int channelId)
     {
+        var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdClaim, out var userId))
+            return;
+
+        var channel = await _db.Channels.FindAsync(channelId);
+        if (channel == null || !await CanUserAccessChannelAsync(userId, channel))
+            return;
+
         await Groups.AddToGroupAsync(Context.ConnectionId, $"channel-{channelId}");
     }
 
@@ -130,10 +164,24 @@ public class ChatHub : Hub
 
     public async Task JoinWorkspace(int workspaceId)
     {
+        var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdClaim, out var userId))
+            return;
+
+        var isMember = await _db.WorkspaceMembers
+            .AnyAsync(wm => wm.WorkspaceId == workspaceId && wm.UserId == userId);
+        if (!isMember)
+            return;
+
         await Groups.AddToGroupAsync(Context.ConnectionId, $"workspace-{workspaceId}");
 
+        var kickedChannelIds = await _db.ChannelKickRecords
+            .Where(k => k.UserId == userId)
+            .Select(k => k.ChannelId)
+            .ToListAsync();
+
         var publicChannels = await _db.Channels
-            .Where(c => c.WorkspaceId == workspaceId && !c.IsDirectMessage && !c.IsPrivate)
+            .Where(c => c.WorkspaceId == workspaceId && !c.IsDirectMessage && !c.IsPrivate && !kickedChannelIds.Contains(c.Id))
             .Select(c => c.Id)
             .ToListAsync();
 
@@ -150,7 +198,7 @@ public class ChatHub : Hub
 
     public async Task SendMessage(SendMessageDto messageDto)
     {
-        if (string.IsNullOrWhiteSpace(messageDto.Content))
+        if (string.IsNullOrWhiteSpace(messageDto.Content) || messageDto.Content.Length > 4000)
             return;
 
         var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -162,7 +210,7 @@ public class ChatHub : Hub
             return;
 
         var channel = await _db.Channels.FindAsync(messageDto.ChannelId);
-        if (channel == null)
+        if (channel == null || !await CanUserAccessChannelAsync(senderId, channel))
             return;
 
         var message = new Message
@@ -255,6 +303,9 @@ public class ChatHub : Hub
 
     public async Task SendReaction(SendReactionDto dto)
     {
+        if (string.IsNullOrWhiteSpace(dto.Emoji) || dto.Emoji.Length > 32)
+            return;
+
         var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!int.TryParse(userIdClaim, out var userId))
             return;
@@ -263,8 +314,12 @@ public class ChatHub : Hub
         if (string.IsNullOrEmpty(username))
             return;
 
+        var channel = await _db.Channels.FindAsync(dto.ChannelId);
+        if (channel == null || !await CanUserAccessChannelAsync(userId, channel))
+            return;
+
         var message = await _db.Messages.FindAsync(dto.MessageId);
-        if (message == null)
+        if (message == null || message.ChannelId != dto.ChannelId)
             return;
 
         var existing = await _db.MessageReactions
@@ -307,8 +362,16 @@ public class ChatHub : Hub
 
     public async Task SendTyping(int channelId, bool isTyping)
     {
+        var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdClaim, out var userId))
+            return;
+
         var username = Context.User?.Identity?.Name;
         if (string.IsNullOrEmpty(username))
+            return;
+
+        var channel = await _db.Channels.FindAsync(channelId);
+        if (channel == null || !await CanUserAccessChannelAsync(userId, channel))
             return;
 
         var notification = new TypingNotificationDto
@@ -332,7 +395,7 @@ public class ChatHub : Hub
         var username = Context.User?.Identity?.Name ?? "User";
         var user = await _db.Users.FindAsync(userId);
         var channel = await _db.Channels.FindAsync(channelId);
-        if (channel == null)
+        if (channel == null || channel.Type != "voice" || !await CanUserAccessChannelAsync(userId, channel))
             return;
 
         var participant = new VoiceParticipantDto
