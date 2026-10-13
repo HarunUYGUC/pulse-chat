@@ -57,9 +57,15 @@ PulseChat is a production-grade, full-stack real-time messaging and collaboratio
 - **Secure Password Changes**: BCrypt-verified password updating requiring current password confirmation, minimum length enforcement, and real-time inline validation feedback.
 - **Smart Responsive Layout**: Tabbed layout (*Profile Details* / *Change Password*) with pinned headers, pinned action footers, and scrollable body designed for all screen sizes.
 
-### 🔐 Security & Persistence
-- **JWT Authentication & BCrypt**: Password hashing with BCrypt and JWT Bearer tokens passed via HTTP Authorization headers and WebSocket query strings.
-- **Self-Hosted Relational Storage**: Entity Framework Core 9 with SQLite (`pulsechat.db`) — zero cloud cost ($0), with automatic migration and seeding.
+### 🔐 Enterprise Security & Production Architecture
+- **Dual-Provider Relational Storage**: Entity Framework Core 9 supporting both **SQLite** (with Write-Ahead Logging `WAL` and busy timeouts for zero-config local development) and **PostgreSQL** (`Npgsql`) for production cloud databases (Neon, Supabase, Render, Railway, Docker) with automatic `postgres://` connection string normalization.
+- **BOLA / IDOR Defense (OWASP API Top 10 #1)**: Centralized authorization verification (`CanUserAccessChannelAsync`) ensuring users can only read messages, join channels, or manage members within workspaces they legitimately belong to.
+- **Brute-Force & Rate Limiting**: Built-in .NET 9 IP-based rate limiting on `/api/auth/login` and `/api/auth/register` (10 requests per minute with HTTP 429 Too Many Requests and `X-Forwarded-For` reverse-proxy support).
+- **BCrypt DoS Prevention**: Strict `[MaxLength(100)]` input validation on all password and authentication fields to prevent CPU/memory exhaustion attacks.
+- **Data Privacy & PII Protection**: Automated email masking (`al***@example.com`) in workspace, channel, and user directories to prevent member scraping by non-admin peers.
+- **HTTP Security Headers & HSTS**: Enforced headers (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-XSS-Protection: 0`) and HTTP Strict Transport Security (`app.UseHsts()`) in production.
+- **SignalR WebSocket Hardening**: Centralized WebSocket authorization on broadcasts, typing indicators, and WebRTC signaling, plus 4,000-character payload limits and production error stack-trace suppression.
+- **Dynamic Production URL Resolution**: Frontend `api.ts` and `signalr.ts` dynamically adapt between dev (`localhost:5000`), production relative endpoints (`/api`, `/hubs/chat`), or `VITE_API_URL` environment variables to prevent mixed-content failures.
 - **Graceful Error Boundaries**: React Error Boundary wrappers preventing blank screens and offering 1-click recovery.
 - **Session & Refresh Resilience**: Active workspace, channel, and JWT token state preserved across page refreshes (F5).
 
@@ -71,8 +77,8 @@ PulseChat is a production-grade, full-stack real-time messaging and collaboratio
 - **Framework**: ASP.NET Core 9.0 Web API
 - **Real-Time Hub**: Microsoft ASP.NET Core SignalR (`ChatHub`)
 - **Voice In-Memory Engine**: Thread-safe concurrent voice room tracker (`VoiceTracker`)
-- **ORM / Database**: Entity Framework Core 9 with SQLite
-- **Security**: JWT Bearer Authentication (`Microsoft.AspNetCore.Authentication.JwtBearer`), BCrypt (`BCrypt.Net-Next`)
+- **ORM / Database**: Entity Framework Core 9 (Dual-Provider: SQLite for local dev + PostgreSQL via `Npgsql` for cloud/production)
+- **Security & Hardening**: JWT Bearer Authentication, BCrypt (`BCrypt.Net-Next`), .NET 9 Rate Limiter (`Microsoft.AspNetCore.RateLimiting`), HTTP Security Headers, PII Email Masking
 
 ### Frontend (Web)
 - **Framework**: React 18/19 with TypeScript
@@ -105,12 +111,15 @@ pulse-chat/
 │   │   ├── MessagesController.cs      # Channel message history and read receipts
 │   │   └── WorkspacesController.cs    # Workspaces CRUD, Invites, Members, Unread counts
 │   ├── Data/
-│   │   └── AppDbContext.cs            # EF Core DbContext with SQLite & seed data
+│   │   └── AppDbContext.cs            # EF Core DbContext with SQLite/PostgreSQL & seed data
 │   ├── DTOs/
 │   │   ├── AuthDtos.cs                # Auth requests and user profiles
 │   │   ├── ChannelDtos.cs             # Channel summaries, voice participants, read markers
 │   │   ├── MessageDtos.cs             # Messages with workspace and reaction metadata
 │   │   └── WorkspaceDtos.cs           # Workspace summaries, members, unread counts
+│   ├── Helpers/
+│   │   ├── DatabaseHelper.cs          # Dual-provider DB configuration & postgres:// URI parser
+│   │   └── PrivacyHelper.cs           # Email masking & PII data protection
 │   ├── Hubs/
 │   │   └── ChatHub.cs                 # SignalR hub (Broadcasts, Typing, Presence, WebRTC Signaling)
 │   ├── Models/
@@ -126,7 +135,7 @@ pulse-chat/
 │   │   ├── PresenceTracker.cs         # Thread-safe multi-connection presence mapping
 │   │   ├── VoiceTracker.cs            # In-memory thread-safe room & participant manager
 │   │   └── TokenService.cs            # JWT token generation
-│   ├── Program.cs                     # Startup, CORS, JWT, SignalR routing, Migrations
+│   ├── Program.cs                     # Startup, CORS, JWT, SignalR routing, Security headers
 │   └── appsettings.json
 │
 ├── frontend/
