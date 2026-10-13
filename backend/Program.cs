@@ -1,5 +1,7 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PulseChat.Api.Data;
@@ -22,7 +24,7 @@ builder.Services.AddSingleton<VoiceTracker>();
 // 3. SignalR
 builder.Services.AddSignalR(options =>
 {
-    options.EnableDetailedErrors = true;
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
 });
 
 // 4. JWT Authentication
@@ -144,6 +146,42 @@ builder.Services.AddCors(options =>
             }
         }
     });
+});
+
+// 6. Rate Limiting Configuration
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Strict rate limiter for authentication endpoints: 10 attempts per minute per IP
+    options.AddPolicy("AuthRateLimit", httpContext =>
+    {
+        var clientIp = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
+            ?.Split(',')[0].Trim();
+
+        if (string.IsNullOrWhiteSpace(clientIp))
+        {
+            clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        }
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: clientIp,
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            });
+    });
+
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsync(
+            "{\"message\":\"Too many authentication attempts. Please try again after a minute.\"}", 
+            cancellationToken: token);
+    };
 });
 
 builder.Services.AddControllers();
@@ -380,6 +418,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors(corsPolicy);
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

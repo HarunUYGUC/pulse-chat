@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using PulseChat.Api.Data;
@@ -35,6 +36,7 @@ public class AuthController : ControllerBase
         _hubContext = hubContext;
     }
 
+    [EnableRateLimiting("AuthRateLimit")]
     [HttpPost("register")]
     public async Task<ActionResult<AuthResponseDto>> Register([FromBody] RegisterDto dto)
     {
@@ -164,6 +166,7 @@ public class AuthController : ControllerBase
         });
     }
 
+    [EnableRateLimiting("AuthRateLimit")]
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginDto dto)
     {
