@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using PulseChat.Api.Data;
 using PulseChat.Api.DTOs;
+using PulseChat.Api.Helpers;
 using PulseChat.Api.Hubs;
 using PulseChat.Api.Models;
 using PulseChat.Api.Services;
@@ -331,13 +332,17 @@ public class AuthController : ControllerBase
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         int.TryParse(userIdClaim, out var currentUserId);
 
+        bool isOwnerOrAdmin = false;
         IQueryable<int> allowedUserIdsQuery;
 
         if (workspaceId.HasValue)
         {
-            var isMember = await _db.WorkspaceMembers.AnyAsync(wm => wm.WorkspaceId == workspaceId.Value && wm.UserId == currentUserId);
-            if (!isMember)
+            var myMembership = await _db.WorkspaceMembers
+                .FirstOrDefaultAsync(wm => wm.WorkspaceId == workspaceId.Value && wm.UserId == currentUserId);
+            if (myMembership == null)
                 return StatusCode(403, new { message = "You must be a member of the workspace to view its users." });
+
+            isOwnerOrAdmin = myMembership.Role == "Owner" || myMembership.Role == "Admin";
 
             allowedUserIdsQuery = _db.WorkspaceMembers
                 .Where(wm => wm.WorkspaceId == workspaceId.Value && wm.UserId != currentUserId)
@@ -357,24 +362,20 @@ public class AuthController : ControllerBase
 
         var allowedUserIds = await allowedUserIdsQuery.ToListAsync();
 
-        var users = await _db.Users
+        var rawUsers = await _db.Users
             .Where(u => allowedUserIds.Contains(u.Id))
             .OrderBy(u => u.Username)
-            .Select(u => new UserDto
-            {
-                Id = u.Id,
-                Username = u.Username,
-                Email = u.Email,
-                AvatarUrl = u.AvatarUrl,
-                CreatedAt = u.CreatedAt,
-                IsOnline = false
-            })
             .ToListAsync();
 
-        foreach (var u in users)
+        var users = rawUsers.Select(u => new UserDto
         {
-            u.IsOnline = _presenceTracker.IsUserOnline(u.Username);
-        }
+            Id = u.Id,
+            Username = u.Username,
+            Email = (isOwnerOrAdmin || u.Id == currentUserId) ? u.Email : PrivacyHelper.MaskEmail(u.Email),
+            AvatarUrl = u.AvatarUrl,
+            CreatedAt = u.CreatedAt,
+            IsOnline = _presenceTracker.IsUserOnline(u.Username)
+        }).ToList();
 
         return Ok(users);
     }

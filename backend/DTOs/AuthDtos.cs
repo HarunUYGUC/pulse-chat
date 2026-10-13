@@ -11,22 +11,28 @@ public class RegisterDto
 
     [Required]
     [EmailAddress]
+    [MaxLength(100)]
     public string Email { get; set; } = string.Empty;
 
     [Required]
-    [MinLength(6)]
+    [MinLength(6), MaxLength(100)]
     public string Password { get; set; } = string.Empty;
 
+    [MaxLength(500)]
     public string? AvatarUrl { get; set; }
+
+    [MaxLength(50)]
     public string? InviteCode { get; set; }
 }
 
 public class LoginDto
 {
     [Required]
+    [MaxLength(100)]
     public string UsernameOrEmail { get; set; } = string.Empty;
 
     [Required]
+    [MaxLength(100)]
     public string Password { get; set; } = string.Empty;
 }
 
@@ -52,10 +58,12 @@ public class UpdateProfileDto
     [MinLength(3), MaxLength(30)]
     public string? Username { get; set; }
 
+    [MaxLength(500)]
     public string? AvatarUrl { get; set; }
 
+    [MaxLength(100)]
     public string? CurrentPassword { get; set; }
 
-    [MinLength(6)]
+    [MinLength(6), MaxLength(100)]
     public string? NewPassword { get; set; }
 }

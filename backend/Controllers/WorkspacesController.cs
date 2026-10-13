@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using PulseChat.Api.Data;
 using PulseChat.Api.DTOs;
+using PulseChat.Api.Helpers;
 using PulseChat.Api.Hubs;
 using PulseChat.Api.Models;
 using PulseChat.Api.Services;
@@ -356,11 +357,13 @@ public class WorkspacesController : ControllerBase
     {
         var currentUserId = GetCurrentUserId();
 
-        var isMember = await _db.WorkspaceMembers
-            .AnyAsync(wm => wm.WorkspaceId == id && wm.UserId == currentUserId);
+        var currentMembership = await _db.WorkspaceMembers
+            .FirstOrDefaultAsync(wm => wm.WorkspaceId == id && wm.UserId == currentUserId);
 
-        if (!isMember)
+        if (currentMembership == null)
             return StatusCode(403, new { message = "You must be a member of this workspace to view its members." });
+
+        var isOwnerOrAdmin = currentMembership.Role == "Owner" || currentMembership.Role == "Admin";
 
         var members = await _db.WorkspaceMembers
             .Where(wm => wm.WorkspaceId == id)
@@ -373,7 +376,7 @@ public class WorkspacesController : ControllerBase
         {
             Id = m.User!.Id,
             Username = m.User.Username,
-            Email = m.User.Email,
+            Email = (isOwnerOrAdmin || m.UserId == currentUserId) ? m.User.Email : PrivacyHelper.MaskEmail(m.User.Email),
             AvatarUrl = m.User.AvatarUrl,
             Role = m.Role,
             JoinedAt = m.JoinedAt,

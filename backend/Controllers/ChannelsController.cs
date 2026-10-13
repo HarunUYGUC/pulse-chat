@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using PulseChat.Api.Data;
 using PulseChat.Api.DTOs;
+using PulseChat.Api.Helpers;
 using PulseChat.Api.Hubs;
 using PulseChat.Api.Models;
 using PulseChat.Api.Services;
@@ -1307,7 +1308,7 @@ public class ChannelsController : ControllerBase
                 {
                     Id = m.User.Id,
                     Username = m.User.Username,
-                    Email = m.User.Email,
+                    Email = (m.User.Id == currentUserId || channel.OwnerId == currentUserId) ? m.User.Email : PrivacyHelper.MaskEmail(m.User.Email),
                     AvatarUrl = m.User.AvatarUrl,
                     CreatedAt = m.User.CreatedAt,
                     IsOnline = _presenceTracker.IsUserOnline(m.User.Username),
