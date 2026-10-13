@@ -96,7 +96,7 @@ public class ChannelsController : ControllerBase
             )
             .Include(c => c.Owner)
             .Include(c => c.Workspace)
-                .ThenInclude(w => w.Owner)
+                .ThenInclude(w => w!.Owner)
             .Include(c => c.Members)
                 .ThenInclude(m => m.User)
             .OrderBy(c => c.IsDirectMessage ? 1 : 0)
@@ -159,7 +159,7 @@ public class ChannelsController : ControllerBase
         var channels = await query
             .Include(c => c.Owner)
             .Include(c => c.Workspace)
-                .ThenInclude(w => w.Owner)
+                .ThenInclude(w => w!.Owner)
             .Include(c => c.Members)
             .OrderBy(c => c.IsProtected ? 0 : 1)
             .ThenBy(c => c.Name)
@@ -225,7 +225,7 @@ public class ChannelsController : ControllerBase
         var channel = await _db.Channels
             .Include(c => c.Owner)
             .Include(c => c.Workspace)
-                .ThenInclude(w => w.Owner)
+                .ThenInclude(w => w!.Owner)
             .Include(c => c.Members)
                 .ThenInclude(m => m.User)
             .FirstOrDefaultAsync(c => c.Id == id);
@@ -385,7 +385,7 @@ public class ChannelsController : ControllerBase
         var channel = await _db.Channels
             .Include(c => c.Owner)
             .Include(c => c.Workspace)
-                .ThenInclude(w => w.Owner)
+                .ThenInclude(w => w!.Owner)
             .Include(c => c.Members).ThenInclude(m => m.User)
             .FirstOrDefaultAsync(c => c.Id == id);
 
@@ -756,7 +756,7 @@ public class ChannelsController : ControllerBase
         var channel = await _db.Channels
             .Include(c => c.Owner)
             .Include(c => c.Workspace)
-                .ThenInclude(w => w.Owner)
+                .ThenInclude(w => w!.Owner)
             .Include(c => c.Members).ThenInclude(m => m.User)
             .FirstOrDefaultAsync(c => c.Id == id);
 
@@ -853,7 +853,7 @@ public class ChannelsController : ControllerBase
         var channel = await _db.Channels
             .Include(c => c.Owner)
             .Include(c => c.Workspace)
-                .ThenInclude(w => w.Owner)
+                .ThenInclude(w => w!.Owner)
             .Include(c => c.Members)
             .FirstOrDefaultAsync(c => c.Id == id);
         if (channel == null)
@@ -953,7 +953,7 @@ public class ChannelsController : ControllerBase
         var channel = await _db.Channels
             .Include(c => c.Owner)
             .Include(c => c.Workspace)
-                .ThenInclude(w => w.Owner)
+                .ThenInclude(w => w!.Owner)
             .Include(c => c.Members).ThenInclude(m => m.User)
             .FirstOrDefaultAsync(c => c.Id == id);
 
