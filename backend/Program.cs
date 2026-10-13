@@ -5,16 +5,14 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PulseChat.Api.Data;
+using PulseChat.Api.Helpers;
 using PulseChat.Api.Hubs;
 using PulseChat.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Database Configuration
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-    ?? "Data Source=pulsechat.db";
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(connectionString));
+// 1. Database Configuration (Dual-Provider: PostgreSQL for production/cloud, SQLite for local dev)
+DatabaseHelper.ConfigureDatabase(builder.Services, builder.Configuration);
 
 // 2. Application Services
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -195,8 +193,19 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
 
-    // Ensure MessageReactions table exists if DB was already created previously
-    db.Database.ExecuteSqlRaw(@"
+    if (db.Database.IsSqlite())
+    {
+        // Configure SQLite WAL mode and busy timeout for local concurrency
+        try
+        {
+            db.Database.ExecuteSqlRaw("PRAGMA journal_mode = WAL;");
+            db.Database.ExecuteSqlRaw("PRAGMA synchronous = NORMAL;");
+            db.Database.ExecuteSqlRaw("PRAGMA busy_timeout = 5000;");
+        }
+        catch { }
+
+        // Ensure MessageReactions table exists if DB was already created previously
+        db.Database.ExecuteSqlRaw(@"
         CREATE TABLE IF NOT EXISTS ""MessageReactions"" (
             ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_MessageReactions"" PRIMARY KEY AUTOINCREMENT,
             ""MessageId"" INTEGER NOT NULL,
@@ -381,6 +390,7 @@ using (var scope = app.Services.CreateScope())
         ");
     }
     catch { }
+    }
 
     // Clean up any cross-workspace channel memberships that were erroneously created
     try
