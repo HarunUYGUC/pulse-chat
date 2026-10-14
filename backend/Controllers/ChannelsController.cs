@@ -462,14 +462,17 @@ public class ChannelsController : ControllerBase
             }
             else if (channel.Workspace != null)
             {
-                notifyUserIds.Add(channel.Workspace.OwnerId);
+                if (channel.Workspace.OwnerId.HasValue)
+                {
+                    notifyUserIds.Add(channel.Workspace.OwnerId.Value);
+                }
             }
             else if (channel.WorkspaceId.HasValue)
             {
                 var wsOwnerId = await _db.Workspaces.Where(w => w.Id == channel.WorkspaceId.Value).Select(w => w.OwnerId).FirstOrDefaultAsync();
-                if (wsOwnerId > 0)
+                if (wsOwnerId.HasValue && wsOwnerId.Value > 0)
                 {
-                    notifyUserIds.Add(wsOwnerId);
+                    notifyUserIds.Add(wsOwnerId.Value);
                 }
             }
 

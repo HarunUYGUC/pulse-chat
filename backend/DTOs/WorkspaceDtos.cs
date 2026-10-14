@@ -10,7 +10,7 @@ public class WorkspaceDto
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string InviteCode { get; set; } = string.Empty;
-    public int OwnerId { get; set; }
+    public int? OwnerId { get; set; }
     public string? OwnerUsername { get; set; }
     public string Role { get; set; } = "Member";
     public int MemberCount { get; set; }

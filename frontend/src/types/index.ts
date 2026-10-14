@@ -78,7 +78,7 @@ export interface Workspace {
   name: string;
   description?: string;
   inviteCode: string;
-  ownerId: number;
+  ownerId?: number | null;
   ownerUsername?: string;
   role: string; // "Owner" | "Admin" | "Member"
   memberCount: number;

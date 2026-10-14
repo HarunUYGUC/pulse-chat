@@ -325,7 +325,7 @@ using (var scope = app.Services.CreateScope())
             ""Name"" TEXT NOT NULL,
             ""Description"" TEXT NULL,
             ""InviteCode"" TEXT NOT NULL,
-            ""OwnerId"" INTEGER NOT NULL,
+            ""OwnerId"" INTEGER NULL,
             ""CreatedAt"" TEXT NOT NULL,
             CONSTRAINT ""FK_Workspaces_Users_OwnerId"" FOREIGN KEY (""OwnerId"") REFERENCES ""Users"" (""Id"") ON DELETE RESTRICT
         );
@@ -354,7 +354,7 @@ using (var scope = app.Services.CreateScope())
     {
         db.Database.ExecuteSqlRaw(@"
             INSERT OR IGNORE INTO ""Workspaces"" (""Id"", ""Name"", ""Description"", ""InviteCode"", ""OwnerId"", ""CreatedAt"")
-            VALUES (1, 'PulseChat Community', 'Default public community workspace for team discussion and collaboration.', 'PULSE-DEMO', 1, datetime('now'));
+            VALUES (1, 'PulseChat Community', 'Default public community workspace for team discussion and collaboration.', 'PULSE-DEMO', NULL, datetime('now'));
         ");
     }
     catch { }

@@ -126,7 +126,7 @@ public class AppDbContext : DbContext
                 Name = "PulseChat Community",
                 Description = "Default public community workspace for team discussion and collaboration.",
                 InviteCode = "PULSE-DEMO",
-                OwnerId = 1,
+                OwnerId = null,
                 CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             }
         );
