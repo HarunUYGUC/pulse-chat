@@ -1,5 +1,15 @@
 # PulseChat — Real-Time Chat & Collaboration Platform
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-pulse--chat--teal.vercel.app-00dfa2?style=for-the-badge&logo=vercel&logoColor=white)](https://pulse-chat-teal.vercel.app)
+[![.NET 9](https://img.shields.io/badge/.NET_9.0-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![React](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL_17-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Render](https://img.shields.io/badge/Render-Docker_API-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://render.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
+
+> 🌐 **Live Web Application:** [https://pulse-chat-teal.vercel.app](https://pulse-chat-teal.vercel.app)  
+> ☁️ **Cloud Architecture:** Frontend hosted on **Vercel** Edge Network, backend containerized on **Render (Docker)**, and database powered by **Neon (Serverless PostgreSQL 17)**.
+
 PulseChat is a production-grade, full-stack real-time messaging and collaboration platform (Slack / Discord inspired) built with **React 18/19 (TypeScript) + Bootstrap 5** on the frontend, **ASP.NET Core 9 Web API + SignalR** on the backend, **WebRTC P2P Mesh Audio** for low-latency voice communications, and a cross-platform mobile client built with **React Native + Expo**.
 
 ---
@@ -97,6 +107,12 @@ PulseChat is a production-grade, full-stack real-time messaging and collaboratio
 - **Persistence**: `@react-native-async-storage/async-storage` for JWT & active session
 - **Real-Time Hub**: `@microsoft/signalr` with auto-reconnection
 - **Icons**: `lucide-react-native`
+
+### Cloud Infrastructure & Deployment
+- **Frontend Hosting**: [Vercel](https://vercel.com) (Global Edge Network, automated Git CI/CD)
+- **Backend API Hosting**: [Render](https://render.com) (Docker containerized Linux Web Service with auto-restart)
+- **Managed Database**: [Neon](https://neon.tech) (Serverless PostgreSQL 17 on AWS Frankfurt with connection pooling)
+- **Real-Time Mesh**: WebRTC Mesh with Google STUN (`stun:stun.l.google.com:19302`) + SignalR WebSocket signaling
 
 ---
 
