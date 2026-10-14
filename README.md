@@ -194,6 +194,8 @@ pulse-chat/
 │   ├── App.tsx                        # Root entry point with GestureHandler & Providers
 │   └── package.json
 │
+├── docker-compose.yml                 # Production multi-container orchestration (Postgres + API + Nginx)
+├── .env.example                       # Production environment configuration template
 ├── start.bat                          # 1-Click Web + Backend Windows Batch Launcher
 ├── start.ps1                          # 1-Click Web + Backend PowerShell Launcher
 ├── start-mobile.bat                   # 1-Click Mobile Expo Windows Batch Launcher
@@ -251,6 +253,15 @@ npx expo start
 npx expo start --android
 ```
 Scan the QR code with **Expo Go** (Android) or the Camera app (iOS) while connected to the same Wi-Fi network.
+
+---
+
+### 3. Launch with Docker Compose (Production Multi-Container Stack)
+To boot the entire full-stack platform (PostgreSQL 16 + ASP.NET Core 9 Web API + React Vite SPA served via Nginx Reverse Proxy) with a single command:
+```bash
+docker compose up -d
+```
+Once initialized, navigate to **`http://localhost`** (port 80) in your web browser. All API requests (`/api`) and SignalR WebSockets (`/hubs/chat`) are automatically proxied to the backend container without CORS constraints.
 
 ---
 

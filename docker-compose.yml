@@ -1,0 +1,56 @@
+services:
+  # 1. Production Relational Database (PostgreSQL)
+  postgres:
+    image: postgres:16-alpine
+    container_name: pulsechat_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pulsechat
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pulsechat_secret_2026}
+      POSTGRES_DB: pulsechat_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulsechat -d pulsechat_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    # Isolated internal port: accessible only to backend within Docker network
+    expose:
+      - "5432"
+
+  # 2. ASP.NET Core 9 Web API & SignalR Hub
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pulsechat_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      DATABASE_URL: postgres://pulsechat:${POSTGRES_PASSWORD:-pulsechat_secret_2026}@postgres:5432/pulsechat_db
+      JWT_SECRET: ${JWT_SECRET:-PulseChatSuperSecretKeyForProductionDockerDeploy2026!#}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost,http://localhost:80,http://localhost:3000,http://localhost:5173}
+    # Isolated internal port: accessible only to frontend (Nginx) reverse proxy
+    expose:
+      - "5000"
+
+  # 3. React Vite SPA + Nginx Reverse Proxy
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pulsechat_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    # Public edge entry point: Nginx handles all external HTTP traffic and proxies /api and /hubs
+    ports:
+      - "80:80"
+
+volumes:
+  postgres_data:
+    driver: local
