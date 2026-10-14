@@ -8,7 +8,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
 > 🌐 **Live Web Application:** [https://pulse-chat-teal.vercel.app](https://pulse-chat-teal.vercel.app)  
-> ☁️ **Cloud Architecture:** Frontend hosted on **Vercel** Edge Network, backend containerized on **Render (Docker)**, and database powered by **Neon (Serverless PostgreSQL 17)**.
+> ☁️ **Cloud Architecture:** Frontend hosted on **Vercel** Edge Network, backend containerized on **Render (Docker)**, and database powered by **Neon (Serverless PostgreSQL 17)**.  
+> 💡 *Note on Free-Tier Hosting: The backend container spins down after 15 minutes of inactivity. If visiting after an idle period, the initial wake-up may take ~30–50 seconds. Subsequent requests and WebSocket connections are instant.*
 
 PulseChat is a production-grade, full-stack real-time messaging and collaboration platform (Slack / Discord inspired) built with **React 18/19 (TypeScript) + Bootstrap 5** on the frontend, **ASP.NET Core 9 Web API + SignalR** on the backend, **WebRTC P2P Mesh Audio** for low-latency voice communications, and a cross-platform mobile client built with **React Native + Expo**.
 
