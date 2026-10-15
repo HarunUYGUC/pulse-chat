@@ -12,16 +12,83 @@ const RTC_CONFIG: RTCConfiguration = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
   ],
+  bundlePolicy: 'max-bundle',
+  rtcpMuxPolicy: 'require',
 };
+
+/**
+ * Modifies WebRTC SDP to enforce Opus audio parameters:
+ * - usedtx=1: Discontinuous transmission (stops transmitting audio packets during silence,
+ *   breaking acoustic feedback loops and eliminating infinite crescendo echo / Larsen effect).
+ * - stereo=0: Forces mono audio (activates phone & laptop hardware AEC / Acoustic Echo Canceller DSPs).
+ * - useinbandfec=1: In-band forward error correction for mobile packet loss recovery.
+ * - maxaveragebitrate=32000: 32kbps mono voice (crystal clear voice, prevents saturation clipping).
+ */
+function optimizeOpusSdp(sdp: string): string {
+  if (!sdp) return sdp;
+
+  // Locate the Opus payload type number, e.g. "a=rtpmap:111 opus/48000/2"
+  const opusRtpmapMatch = sdp.match(/a=rtpmap:(\d+)\s+opus\/48000/i);
+  if (!opusRtpmapMatch) return sdp;
+
+  const pt = opusRtpmapMatch[1];
+  const fmtpRegex = new RegExp(`^a=fmtp:${pt}\\s+(.*)$`, 'm');
+  const fmtpMatch = sdp.match(fmtpRegex);
+
+  const desiredParams: Record<string, string> = {
+    stereo: '0',
+    usedtx: '1',
+    useinbandfec: '1',
+    maxaveragebitrate: '32000',
+    minptime: '10',
+    cbr: '0',
+  };
+
+  if (fmtpMatch) {
+    const existingParams = fmtpMatch[1].split(';').map((p) => p.trim());
+    const paramMap: Record<string, string> = {};
+
+    existingParams.forEach((param) => {
+      const [k, v] = param.split('=');
+      if (k) paramMap[k.toLowerCase()] = v || '';
+    });
+
+    Object.entries(desiredParams).forEach(([k, v]) => {
+      paramMap[k.toLowerCase()] = v;
+    });
+
+    const newParamStr = Object.entries(paramMap)
+      .map(([k, v]) => (v ? `${k}=${v}` : k))
+      .join(';');
+
+    return sdp.replace(fmtpRegex, `a=fmtp:${pt} ${newParamStr}`);
+  } else {
+    // No existing fmtp line, insert one right after rtpmap
+    const paramStr = Object.entries(desiredParams)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(';');
+    const rtpmapLine = opusRtpmapMatch[0];
+    return sdp.replace(rtpmapLine, `${rtpmapLine}\r\na=fmtp:${pt} ${paramStr}`);
+  }
+}
 
 class WebRtcService {
   private localStream: MediaStream | null = null;
   private peers: Map<string, RTCPeerConnection> = new Map();
   private audioElements: Map<string, HTMLAudioElement> = new Map();
+  private pendingPlayAudioElements: Set<HTMLAudioElement> = new Set();
+  private hasUnlockerAttached: boolean = false;
+  private selectedOutputDeviceId: string = '';
+
   private audioContext: AudioContext | null = null;
   private localAnalyser: AnalyserNode | null = null;
-  private remoteAnalysers: Map<string, AnalyserNode> = new Map();
+  private localSpeakingState: boolean = false;
   private vadInterval: number | null = null;
+
+  private remoteAnalysers: Map<string, AnalyserNode> = new Map();
+  private remoteSpeakingStates: Map<number, boolean> = new Map();
+  private remoteVadIntervals: Map<string, number> = new Map();
+
   private isMuted: boolean = false;
   private isDeafened: boolean = false;
   private handlers: VoiceSignalingHandlers = {};
@@ -30,24 +97,135 @@ class WebRtcService {
     this.handlers = { ...this.handlers, ...handlers };
   }
 
+  public async setOutputDevice(deviceId: string) {
+    this.selectedOutputDeviceId = deviceId;
+    for (const audioEl of this.audioElements.values()) {
+      if ('setSinkId' in audioEl && typeof (audioEl as any).setSinkId === 'function') {
+        try {
+          await (audioEl as any).setSinkId(deviceId);
+        } catch (err) {
+          console.warn('Failed to set audio sink ID:', err);
+        }
+      }
+    }
+  }
+
+  /**
+   * Unlocks mobile audio autoplay restrictions (iOS Safari / Android Chrome)
+   * on the first touch or click interaction.
+   */
+  private registerAutoplayUnlocker() {
+    if (this.hasUnlockerAttached || typeof window === 'undefined') return;
+    this.hasUnlockerAttached = true;
+
+    const unlock = () => {
+      // 1. Play queued audio elements
+      this.pendingPlayAudioElements.forEach((el) => {
+        if (el && el.paused) {
+          el.play()
+            .then(() => {
+              this.pendingPlayAudioElements.delete(el);
+            })
+            .catch(() => {});
+        } else {
+          this.pendingPlayAudioElements.delete(el);
+        }
+      });
+
+      // 2. Resume AudioContext if suspended
+      if (this.audioContext && this.audioContext.state === 'suspended') {
+        this.audioContext.resume().catch(() => {});
+      }
+
+      if (this.pendingPlayAudioElements.size === 0) {
+        window.removeEventListener('click', unlock, true);
+        window.removeEventListener('touchstart', unlock, true);
+        window.removeEventListener('pointerdown', unlock, true);
+        this.hasUnlockerAttached = false;
+      }
+    };
+
+    window.addEventListener('click', unlock, true);
+    window.addEventListener('touchstart', unlock, true);
+    window.addEventListener('pointerdown', unlock, true);
+  }
+
   public async startLocalAudio(deviceId?: string): Promise<MediaStream> {
     this.stopLocalAudio();
 
+    // Warm up / unlock AudioContext during the user's initial click gesture
+    try {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtx) {
+        this.audioContext = new AudioCtx();
+        if (this.audioContext.state === 'suspended') {
+          await this.audioContext.resume();
+        }
+      }
+    } catch (err) {
+      console.warn('Could not warm up AudioContext:', err);
+    }
+
+    // Professional audio constraints:
+    // - echoCancellation: ideal true (enables hardware/driver acoustic echo cancellation)
+    // - noiseSuppression: ideal true (filters out background fans, room noise, static)
+    // - autoGainControl: ideal true (evens out voice volume without clipping)
+    // - channelCount: 1 (mono audio activates hardware AEC on mobile chips and eliminates cross-talk)
     const constraints: MediaStreamConstraints = {
       audio: {
         deviceId: deviceId ? { exact: deviceId } : undefined,
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
+        echoCancellation: { ideal: true },
+        noiseSuppression: { ideal: true },
+        autoGainControl: { ideal: true },
+        channelCount: { ideal: 1 },
+        sampleRate: { ideal: 48000 },
+        // Chromium / WebKit specific flags
+        googEchoCancellation: { ideal: true },
+        googAutoGainControl: { ideal: true },
+        googNoiseSuppression: { ideal: true },
+        googHighpassFilter: { ideal: true },
+        googTypingNoiseDetection: { ideal: true },
+      } as MediaTrackConstraints,
       video: false,
     };
 
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
     } catch {
-      // Fallback to basic audio constraint if exact device fails
-      this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      // Fallback: omit exact deviceId and vendor flags, but KEEP core AEC & noise suppression!
+      try {
+        this.localStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+          },
+          video: false,
+        });
+      } catch {
+        // Last-resort fallback for restrictive webviews
+        this.localStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: false,
+        });
+      }
+    }
+
+    // Reinforce constraints on active audio tracks
+    if (this.localStream) {
+      this.localStream.getAudioTracks().forEach((track) => {
+        track
+          .applyConstraints({
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+          })
+          .catch(() => {});
+      });
     }
 
     // Apply mute/deafen states if already toggled
@@ -62,8 +240,17 @@ class WebRtcService {
   private setupLocalVad() {
     try {
       if (!this.localStream) return;
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.audioContext = new AudioCtx();
+      if (!this.audioContext || this.audioContext.state === 'closed') {
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        this.audioContext = new AudioCtx();
+      }
+
+      if (this.audioContext.state === 'suspended') {
+        this.audioContext.resume().catch(() => {});
+      }
+
       const source = this.audioContext.createMediaStreamSource(this.localStream);
       this.localAnalyser = this.audioContext.createAnalyser();
       this.localAnalyser.fftSize = 512;
@@ -71,6 +258,7 @@ class WebRtcService {
       source.connect(this.localAnalyser);
 
       let silenceCounter = 0;
+      this.localSpeakingState = false;
       const dataArray = new Uint8Array(this.localAnalyser.frequencyBinCount);
 
       if (this.vadInterval) {
@@ -80,27 +268,48 @@ class WebRtcService {
       this.vadInterval = window.setInterval(() => {
         const currentUserId = this.handlers.getCurrentUserId?.();
         if (!this.localAnalyser || this.isMuted || this.isDeafened) {
-          if (currentUserId) {
+          if (this.localSpeakingState && currentUserId) {
+            this.localSpeakingState = false;
             this.handlers.onSpeakingChange?.(currentUserId, false);
           }
           return;
         }
 
         this.localAnalyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
+
+        // Vocal band energy (approx 200 Hz to 3500 Hz: bins 2 to 38)
+        // Eliminates false triggers from AC/fan rumbles (<180 Hz) and keyboard hiss (>4000 Hz)
+        const minVoiceBin = 2;
+        const maxVoiceBin = Math.min(38, dataArray.length);
+        let voiceSum = 0;
+        for (let i = minVoiceBin; i < maxVoiceBin; i++) {
+          voiceSum += dataArray[i];
         }
-        const average = sum / dataArray.length;
+        const voiceAverage = voiceSum / (maxVoiceBin - minVoiceBin);
+
+        // Total energy across spectrum
+        let totalSum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          totalSum += dataArray[i];
+        }
+        const totalAverage = totalSum / dataArray.length;
+
         if (!currentUserId) return;
 
-        // VAD threshold
-        if (average > 14) {
+        // Tuned voice activity threshold: avoids ambient room noise, fan hiss, and shallow breathing
+        const isVoiceActive = voiceAverage >= 22 && totalAverage >= 14;
+
+        if (isVoiceActive) {
           silenceCounter = 0;
-          this.handlers.onSpeakingChange?.(currentUserId, true);
+          if (!this.localSpeakingState) {
+            this.localSpeakingState = true;
+            this.handlers.onSpeakingChange?.(currentUserId, true);
+          }
         } else {
           silenceCounter++;
-          if (silenceCounter > 3) {
+          // 5 ticks (500ms) hangover time prevents clipping sentence endings
+          if (silenceCounter >= 5 && this.localSpeakingState) {
+            this.localSpeakingState = false;
             this.handlers.onSpeakingChange?.(currentUserId, false);
           }
         }
@@ -123,10 +332,17 @@ class WebRtcService {
         offerToReceiveAudio: true,
         offerToReceiveVideo: false,
       });
-      await pc.setLocalDescription(offer);
 
-      if (offer.sdp) {
-        await this.handlers.sendOffer?.(targetConnectionId, offer.sdp);
+      // Optimize Opus SDP parameters (DTX=1, mono=1, FEC=1, 32kbps)
+      const optimizedSdp = optimizeOpusSdp(offer.sdp || '');
+      const localDesc = new RTCSessionDescription({
+        type: offer.type,
+        sdp: optimizedSdp,
+      });
+      await pc.setLocalDescription(localDesc);
+
+      if (localDesc.sdp) {
+        await this.handlers.sendOffer?.(targetConnectionId, localDesc.sdp);
       }
     } catch (err) {
       console.error(`Failed to create/send offer to peer ${targetConnectionId}:`, err);
@@ -143,10 +359,17 @@ class WebRtcService {
     try {
       await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp }));
       const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
 
-      if (answer.sdp) {
-        await this.handlers.sendAnswer?.(senderConnectionId, answer.sdp);
+      // Optimize Opus SDP parameters
+      const optimizedSdp = optimizeOpusSdp(answer.sdp || '');
+      const localDesc = new RTCSessionDescription({
+        type: answer.type,
+        sdp: optimizedSdp,
+      });
+      await pc.setLocalDescription(localDesc);
+
+      if (localDesc.sdp) {
+        await this.handlers.sendAnswer?.(senderConnectionId, localDesc.sdp);
       }
     } catch (err) {
       console.error(`Failed to handle offer from ${senderConnectionId}:`, err);
@@ -195,7 +418,7 @@ class WebRtcService {
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         this.handlers.onConnectionStatusChange?.('connected');
       } else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
-        // Will attempt to reconnect
+        // Handled on peer disconnect
       }
     };
 
@@ -203,19 +426,57 @@ class WebRtcService {
       const remoteStream = event.streams[0];
       if (!remoteStream) return;
 
-      // Attach audio element
+      // Attach audio element with mobile-friendly playback attributes
       let audioEl = this.audioElements.get(targetConnectionId);
       if (!audioEl) {
         audioEl = document.createElement('audio');
         audioEl.autoplay = true;
+        audioEl.setAttribute('playsinline', 'true');
+        audioEl.setAttribute('webkit-playsinline', 'true');
+        audioEl.setAttribute('preload', 'auto');
         audioEl.style.display = 'none';
         document.body.appendChild(audioEl);
         this.audioElements.set(targetConnectionId, audioEl);
+
+        // Apply selected output device if supported by browser
+        if (
+          this.selectedOutputDeviceId &&
+          'setSinkId' in audioEl &&
+          typeof (audioEl as any).setSinkId === 'function'
+        ) {
+          (audioEl as any).setSinkId(this.selectedOutputDeviceId).catch(() => {});
+        }
       }
 
       audioEl.srcObject = remoteStream;
       audioEl.muted = this.isDeafened;
-      audioEl.play().catch(() => {});
+      // 0.90 volume leaves headroom to avoid hardware speaker non-linear clipping distortion
+      audioEl.volume = 0.9;
+
+      const playAudio = () => {
+        if (!audioEl || this.isDeafened) return;
+        const promise = audioEl.play();
+        if (promise !== undefined) {
+          promise.catch((err) => {
+            console.warn(
+              `Autoplay blocked for peer ${targetConnectionId}, waiting for user interaction:`,
+              err
+            );
+            this.pendingPlayAudioElements.add(audioEl!);
+            this.registerAutoplayUnlocker();
+          });
+        }
+      };
+
+      playAudio();
+
+      // Trigger playback again as soon as media packets start flowing
+      const audioTrack = event.track;
+      if (audioTrack) {
+        audioTrack.onunmute = () => {
+          playAudio();
+        };
+      }
 
       // Setup remote VAD to indicate when this remote user is speaking
       this.setupRemoteVad(targetConnectionId, targetUserId, remoteStream);
@@ -226,9 +487,15 @@ class WebRtcService {
 
   private setupRemoteVad(connectionId: string, userId: number, stream: MediaStream) {
     try {
-      if (!this.audioContext) {
-        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!this.audioContext || this.audioContext.state === 'closed') {
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         this.audioContext = new AudioCtx();
+      }
+
+      if (this.audioContext.state === 'suspended') {
+        this.audioContext.resume().catch(() => {});
       }
 
       const source = this.audioContext.createMediaStreamSource(stream);
@@ -238,33 +505,63 @@ class WebRtcService {
       source.connect(analyser);
       this.remoteAnalysers.set(connectionId, analyser);
 
+      // Clear existing interval if present
+      const existingInterval = this.remoteVadIntervals.get(connectionId);
+      if (existingInterval) {
+        window.clearInterval(existingInterval);
+      }
+
       let silenceCounter = 0;
+      this.remoteSpeakingStates.set(userId, false);
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
       const interval = window.setInterval(() => {
         if (!this.peers.has(connectionId)) {
           window.clearInterval(interval);
-          this.handlers.onSpeakingChange?.(userId, false);
+          this.remoteVadIntervals.delete(connectionId);
+          if (this.remoteSpeakingStates.get(userId)) {
+            this.remoteSpeakingStates.set(userId, false);
+            this.handlers.onSpeakingChange?.(userId, false);
+          }
           return;
         }
 
         analyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
-        }
-        const average = sum / dataArray.length;
 
-        if (average > 14) {
+        // Vocal band energy (bins 2 to 38)
+        const minVoiceBin = 2;
+        const maxVoiceBin = Math.min(38, dataArray.length);
+        let voiceSum = 0;
+        for (let i = minVoiceBin; i < maxVoiceBin; i++) {
+          voiceSum += dataArray[i];
+        }
+        const voiceAverage = voiceSum / (maxVoiceBin - minVoiceBin);
+
+        let totalSum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          totalSum += dataArray[i];
+        }
+        const totalAverage = totalSum / dataArray.length;
+
+        const isVoiceActive = voiceAverage >= 20 && totalAverage >= 12;
+        const wasSpeaking = this.remoteSpeakingStates.get(userId) || false;
+
+        if (isVoiceActive) {
           silenceCounter = 0;
-          this.handlers.onSpeakingChange?.(userId, true);
+          if (!wasSpeaking) {
+            this.remoteSpeakingStates.set(userId, true);
+            this.handlers.onSpeakingChange?.(userId, true);
+          }
         } else {
           silenceCounter++;
-          if (silenceCounter > 3) {
+          if (silenceCounter >= 5 && wasSpeaking) {
+            this.remoteSpeakingStates.set(userId, false);
             this.handlers.onSpeakingChange?.(userId, false);
           }
         }
       }, 100);
+
+      this.remoteVadIntervals.set(connectionId, interval);
     } catch {
       // Remote VAD fallback
     }
@@ -283,11 +580,19 @@ class WebRtcService {
       audioEl.srcObject = null;
       audioEl.remove();
       this.audioElements.delete(connectionId);
+      this.pendingPlayAudioElements.delete(audioEl);
+    }
+
+    const vadInterval = this.remoteVadIntervals.get(connectionId);
+    if (vadInterval) {
+      window.clearInterval(vadInterval);
+      this.remoteVadIntervals.delete(connectionId);
     }
 
     this.remoteAnalysers.delete(connectionId);
 
     if (userId) {
+      this.remoteSpeakingStates.delete(userId);
       this.handlers.onSpeakingChange?.(userId, false);
     }
   }
@@ -299,9 +604,15 @@ class WebRtcService {
 
   public setDeafen(isDeafened: boolean) {
     this.isDeafened = isDeafened;
-    // Mute remote audio elements
+    // Mute/unmute remote audio elements
     this.audioElements.forEach((el) => {
       el.muted = isDeafened;
+      if (!isDeafened && el.paused) {
+        el.play().catch(() => {
+          this.pendingPlayAudioElements.add(el);
+          this.registerAutoplayUnlocker();
+        });
+      }
     });
     this.applyAudioTrackStates();
   }
@@ -323,6 +634,7 @@ class WebRtcService {
       window.clearInterval(this.vadInterval);
       this.vadInterval = null;
     }
+    this.localSpeakingState = false;
     if (this.audioContext && this.audioContext.state !== 'closed') {
       try {
         this.audioContext.close().catch(() => {});
@@ -350,7 +662,13 @@ class WebRtcService {
       } catch {}
     });
     this.audioElements.clear();
+    this.pendingPlayAudioElements.clear();
+
+    this.remoteVadIntervals.forEach((interval) => window.clearInterval(interval));
+    this.remoteVadIntervals.clear();
     this.remoteAnalysers.clear();
+    this.remoteSpeakingStates.clear();
+
     this.isMuted = false;
     this.isDeafened = false;
     this.handlers.onConnectionStatusChange?.('disconnected');

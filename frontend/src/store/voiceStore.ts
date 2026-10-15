@@ -264,5 +264,6 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
   setSelectedAudioOutput: (deviceId: string) => {
     set({ selectedAudioOutput: deviceId });
+    webrtcService.setOutputDevice(deviceId).catch(() => {});
   },
 }));
